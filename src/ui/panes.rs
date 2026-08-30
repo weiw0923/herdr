@@ -124,7 +124,7 @@ pub(crate) fn apply_pane_chrome(
                 }
             }
 
-            info.borders = if !multi_pane || !pane_borders {
+            info.borders = if !pane_borders {
                 Borders::NONE
             } else {
                 let mut borders = Borders::ALL;

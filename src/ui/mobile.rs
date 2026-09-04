@@ -343,13 +343,10 @@ fn render_header_status(
 
     frame.render_widget(
         Paragraph::new(Line::from(vec![
-            Span::raw(" "),
-            Span::styled(dot, dot_style.bg(p.panel_bg)),
-            Span::raw(" "),
             Span::styled(
                 truncate_end(
                     &ws.display_name_from(&app.terminals, terminal_runtimes),
-                    name_w.saturating_sub(4) as usize,
+                    area.width.saturating_sub(2) as usize,
                 ),
                 Style::default()
                     .fg(p.text)
@@ -357,19 +354,36 @@ fn render_header_status(
                     .add_modifier(Modifier::BOLD),
             ),
         ])),
-        Rect::new(row1.x, row1.y, name_w, 1),
+        Rect::new(row1.x, row1.y, area.width, 1),
     );
     frame.render_widget(
         Paragraph::new(tab_label)
-            .style(Style::default().fg(p.overlay1).bg(p.panel_bg))
+            .style(
+                Style::default()
+                    .fg(p.overlay1)
+                    .bg(p.panel_bg)
+                    .add_modifier(Modifier::BOLD),
+            )
             .alignment(Alignment::Right),
         Rect::new(row1.x + name_w, row1.y, tab_w, 1),
     );
 
     if area.height > 1 {
+        // 第2行: 左上角状态点(左) + agent 汇总
+        let row2 = Rect::new(area.x, area.y + 1, area.width, 1);
         frame.render_widget(
-            Paragraph::new(agent_summary_line(app, p, area.width)),
-            Rect::new(area.x, area.y + 1, area.width, 1),
+            Paragraph::new(Line::from(vec![
+                Span::raw(" "),
+                Span::styled(dot, dot_style.bg(p.panel_bg)),
+                Span::raw(" "),
+            ])),
+            Rect::new(row2.x, row2.y, 3.min(area.width), 1),
+        );
+        frame.render_widget(
+            Paragraph::new(
+                agent_summary_line(app, p, area.width.saturating_sub(4)),
+            ),
+            Rect::new(row2.x + 3, row2.y, area.width.saturating_sub(4), 1),
         );
     }
 }
@@ -409,8 +423,10 @@ fn render_switch_button(app: &AppState, frame: &mut Frame, area: Rect) {
         Rect::new(area.x + 1, label_y, area.width.saturating_sub(1), 1),
     );
 
-    // Badge: 常态空心(=入口), blocked 时实心红(=需要立刻处理)
-    let bx = area.x + area.width.saturating_sub(1);
+    // Badge: 常态空心(=入口), blocked 时实心红(=需要立刻处理); 在 switch 按钮区内水平居中
+    let bx = area
+        .x
+        .saturating_add(area.width.saturating_sub(SWITCH_BUTTON_WIDTH.min(area.width)) / 2);
     let (symbol, style) = if global_agent_counts(app).blocked > 0 {
         ("●", Style::default().fg(p.red).bg(p.surface0))
     } else {

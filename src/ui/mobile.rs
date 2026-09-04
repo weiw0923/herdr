@@ -21,6 +21,7 @@ use crate::layout::PaneId;
 use crate::terminal::TerminalRuntimeRegistry;
 
 const SWITCH_BUTTON_WIDTH: u16 = 9;
+const ENTRY_ROWS_PER_ITEM: usize = 3;
 const TAB_BUTTON_WIDTH: u16 = 5;
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -103,7 +104,7 @@ fn mobile_agents_block_height(app: &AppState) -> usize {
     if count == 0 {
         usize::from(app.agent_view_override.is_some()) * 2
     } else {
-        1 + count * 2
+        1 + count * ENTRY_ROWS_PER_ITEM
     }
 }
 
@@ -118,8 +119,8 @@ pub(crate) fn mobile_switcher_workspace_doc_range(
         .position(|WorkspaceListEntry::Workspace { ws_idx, .. }| *ws_idx == idx)
         .unwrap_or(idx);
     // spaces sit after the agents block, then a title + "new workspace" row.
-    let start = mobile_agents_block_height(app) + 2 + pos * 2;
-    start..start + 2
+    let start = mobile_agents_block_height(app) + 2 + pos * ENTRY_ROWS_PER_ITEM;
+    start..start + ENTRY_ROWS_PER_ITEM
 }
 
 pub(crate) fn mobile_switcher_max_scroll(app: &AppState) -> usize {
@@ -154,9 +155,9 @@ pub(crate) fn mobile_switcher_target_at(
         if agents.is_empty() {
             cursor += 1; // active-query empty state
         } else {
-            let agents_end = cursor + agents.len() * 2;
+            let agents_end = cursor + agents.len() * ENTRY_ROWS_PER_ITEM;
             if doc_row >= cursor && doc_row < agents_end {
-                let idx = (doc_row - cursor) / 2;
+                let idx = (doc_row - cursor) / ENTRY_ROWS_PER_ITEM;
                 return agents.get(idx).map(|entry| MobileSwitcherTarget::Agent {
                     ws_idx: entry.ws_idx,
                     tab_idx: entry.tab_idx,
@@ -175,9 +176,9 @@ pub(crate) fn mobile_switcher_target_at(
     // Spaces render in grouped (worktree-tree) order, which differs from raw
     // array order, so map the clicked row to the entry's real workspace index.
     let space_entries = workspace_list_entries_expanded(app);
-    let spaces_end = cursor + space_entries.len() * 2;
+    let spaces_end = cursor + space_entries.len() * ENTRY_ROWS_PER_ITEM;
     if doc_row >= cursor && doc_row < spaces_end {
-        let entry_idx = (doc_row - cursor) / 2;
+        let entry_idx = (doc_row - cursor) / ENTRY_ROWS_PER_ITEM;
         return space_entries.get(entry_idx).map(
             |WorkspaceListEntry::Workspace { ws_idx, .. }| MobileSwitcherTarget::Workspace(*ws_idx),
         );
@@ -299,15 +300,6 @@ pub(crate) fn render_mobile_panel(
     fill_rect(frame, area, Style::default().bg(p.panel_bg));
 
     let areas = mobile_switcher_areas(app);
-    frame.render_widget(
-        Paragraph::new(" switch").style(
-            Style::default()
-                .fg(p.text)
-                .bg(p.panel_bg)
-                .add_modifier(Modifier::BOLD),
-        ),
-        Rect::new(area.x, area.y, areas.close.x.saturating_sub(area.x), 1),
-    );
     render_close_button(app, frame, areas.close);
 
     if area.height > areas.close.height {
@@ -446,7 +438,7 @@ fn render_switch_button(app: &AppState, frame: &mut Frame, area: Rect) {
     let label_y = if area.height > 1 { area.y + 1 } else { area.y };
     // 文字(全宽居中, 与 badge 圆心对齐)
     frame.render_widget(
-        Paragraph::new(" switch")
+        Paragraph::new("sidebar")
             .style(
                 Style::default()
                     .fg(p.text)
@@ -485,11 +477,6 @@ fn render_close_button(app: &AppState, frame: &mut Frame, area: Rect) {
     }
     let p = &app.palette;
     fill_rect(frame, area, Style::default().bg(p.surface0));
-    for y in area.y..area.y + area.height {
-        frame.buffer_mut()[(area.x, y)]
-            .set_symbol("│")
-            .set_style(Style::default().fg(p.surface_dim).bg(p.surface0));
-    }
     frame.render_widget(
         Paragraph::new("close")
             .style(
@@ -519,7 +506,7 @@ fn render_close_button(app: &AppState, frame: &mut Frame, area: Rect) {
 fn mobile_switcher_content_height(app: &AppState) -> usize {
     // Derive spaces height from the same entry list the render/hit-test use so
     // the three never disagree.
-    let spaces_h = 2 + workspace_list_entries_expanded(app).len() * 2;
+    let spaces_h = 2 + workspace_list_entries_expanded(app).len() * ENTRY_ROWS_PER_ITEM;
     let tabs_h = app
         .active
         .and_then(|idx| app.workspaces.get(idx))
@@ -627,7 +614,7 @@ fn render_mobile_switcher_content(
                 truncate_end(&detail, content.width as usize),
                 p.overlay0,
             );
-            doc_y += 2;
+            doc_y += ENTRY_ROWS_PER_ITEM;
         }
     }
 
@@ -720,7 +707,7 @@ fn render_mobile_switcher_content(
             truncate_end(&detail, content.width as usize),
             p.overlay0,
         );
-        doc_y += 2;
+        doc_y += ENTRY_ROWS_PER_ITEM;
     }
 
     if let Some(ws) = app.active.and_then(|idx| app.workspaces.get(idx)) {
@@ -892,12 +879,14 @@ fn render_two_line_item(
     detail: String,
     detail_fg: ratatui::style::Color,
 ) {
+    // 条目总行高(2行内容 + 1行留白 = 3), 与命中/滚动保持一致
+    let rows = ENTRY_ROWS_PER_ITEM;
     fill_visible_doc_rect(
         frame,
         viewport,
         content,
         doc_y,
-        2,
+        rows,
         Style::default().bg(bg),
         scroll,
     );

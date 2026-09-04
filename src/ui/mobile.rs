@@ -457,16 +457,19 @@ fn render_switch_button(app: &AppState, frame: &mut Frame, area: Rect) {
         Rect::new(area.x, label_y, area.width, 1),
     );
 
-    // Badge: 常态空心(=入口), blocked 时实心红(=需要立刻处理); 在 switch 按钮区内水平居中
-    let bx = area.x.saturating_add(area.width / 2);
+    // Badge: 常态空心(=入口), blocked 时实心红(=需要立刻处理);
+    // 用 "  ○"(前2空格) + 行居中, 圆右移约1列
     let (symbol, style) = if global_agent_counts(app).blocked > 0 {
         ("●", Style::default().fg(p.red).bg(p.surface0))
     } else {
         ("○", Style::default().fg(p.overlay0).bg(p.surface0))
     };
-    frame.buffer_mut()[(bx, area.y)]
-        .set_symbol(symbol)
-        .set_style(style);
+    frame.render_widget(
+        Paragraph::new(format!("  {symbol}"))
+            .style(style)
+            .alignment(Alignment::Center),
+        Rect::new(area.x, area.y, area.width, 1),
+    );
 
     // 竖线最后画, 覆盖在文字/badge背景之上, 保证整列可见
     for y in area.y..area.y + area.height {

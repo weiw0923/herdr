@@ -408,7 +408,7 @@ fn render_tab_button(app: &AppState, frame: &mut Frame, area: Rect) {
     let Some(ws) = app.active.and_then(|idx| app.workspaces.get(idx)) else {
         return;
     };
-    // 第1行: 纯计数; 第2行: "tab" 文字
+    // 第1行: 纯计数; 第2行: "tab" 文字 (全块宽居中, 含左侧无竖线故全块即文本区)
     if area.height > 1 {
         frame.render_widget(
             Paragraph::new(mobile_tab_counter(ws))
@@ -419,13 +419,13 @@ fn render_tab_button(app: &AppState, frame: &mut Frame, area: Rect) {
                         .add_modifier(Modifier::BOLD),
                 )
                 .alignment(Alignment::Center),
-            Rect::new(area.x + 1, area.y, area.width.saturating_sub(1), 1),
+            Rect::new(area.x, area.y, area.width, 1),
         );
         frame.render_widget(
             Paragraph::new("tab")
                 .style(Style::default().fg(p.overlay1).bg(p.surface0))
                 .alignment(Alignment::Center),
-            Rect::new(area.x + 1, area.y + 1, area.width.saturating_sub(1), 1),
+            Rect::new(area.x, area.y + 1, area.width, 1),
         );
     } else {
         frame.render_widget(
@@ -437,7 +437,7 @@ fn render_tab_button(app: &AppState, frame: &mut Frame, area: Rect) {
                         .add_modifier(Modifier::BOLD),
                 )
                 .alignment(Alignment::Center),
-            Rect::new(area.x + 1, area.y, area.width.saturating_sub(1), 1),
+            Rect::new(area.x, area.y, area.width, 1),
         );
     }
 }
@@ -463,7 +463,8 @@ fn render_switch_button(app: &AppState, frame: &mut Frame, area: Rect) {
                     .add_modifier(Modifier::BOLD),
             )
             .alignment(Alignment::Center),
-        Rect::new(area.x + 1, label_y, area.width.saturating_sub(1), 1),
+        // 全块宽居中(含竖线列), 与 badge 圆心对齐
+        Rect::new(area.x, label_y, area.width, 1),
     );
 
     // Badge: 常态空心(=入口), blocked 时实心红(=需要立刻处理); 在 switch 按钮区内水平居中

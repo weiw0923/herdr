@@ -446,7 +446,7 @@ fn render_switch_button(app: &AppState, frame: &mut Frame, area: Rect) {
     let label_y = if area.height > 1 { area.y + 1 } else { area.y };
     // 文字(全宽居中, 与 badge 圆心对齐)
     frame.render_widget(
-        Paragraph::new("switch")
+        Paragraph::new(" switch")
             .style(
                 Style::default()
                     .fg(p.text)

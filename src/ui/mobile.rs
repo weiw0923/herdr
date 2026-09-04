@@ -369,22 +369,18 @@ fn render_header_status(
     );
 
     if area.height > 1 {
-        // 第2行: 左上角状态点(左) + agent 汇总
+        // 第2行: agent 汇总(左) + 状态点在 tab 文本区域下方水平居中
         let row2 = Rect::new(area.x, area.y + 1, area.width, 1);
+        let summary_w = area.width.saturating_sub(tab_w).saturating_sub(1);
         frame.render_widget(
-            Paragraph::new(Line::from(vec![
-                Span::raw(" "),
-                Span::styled(dot, dot_style.bg(p.panel_bg)),
-                Span::raw(" "),
-            ])),
-            Rect::new(row2.x, row2.y, 3.min(area.width), 1),
+            Paragraph::new(agent_summary_line(app, p, summary_w)),
+            Rect::new(row2.x, row2.y, summary_w, 1),
         );
-        frame.render_widget(
-            Paragraph::new(
-                agent_summary_line(app, p, area.width.saturating_sub(4)),
-            ),
-            Rect::new(row2.x + 3, row2.y, area.width.saturating_sub(4), 1),
-        );
+        // dot 中心对齐 tab 区域中心: tab 起点(name_w) + tab 宽/2
+        let dot_cx = name_w.saturating_add(tab_w / 2).min(area.width.saturating_sub(1));
+        frame.buffer_mut()[(row2.x + dot_cx, row2.y)]
+            .set_symbol(dot)
+            .set_style(dot_style.bg(p.panel_bg));
     }
 }
 

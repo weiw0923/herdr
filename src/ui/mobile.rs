@@ -20,7 +20,7 @@ use crate::detect::AgentState;
 use crate::layout::PaneId;
 use crate::terminal::TerminalRuntimeRegistry;
 
-const SWITCH_BUTTON_WIDTH: u16 = 10;
+const SWITCH_BUTTON_WIDTH: u16 = 9;
 const TAB_BUTTON_WIDTH: u16 = 5;
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -420,7 +420,7 @@ fn render_tab_button(app: &AppState, frame: &mut Frame, area: Rect) {
             Paragraph::new("tab")
                 .style(
                     Style::default()
-                        .fg(p.overlay1)
+                        .fg(p.text)
                         .bg(p.surface0)
                         .add_modifier(Modifier::BOLD),
                 )

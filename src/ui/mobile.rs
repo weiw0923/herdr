@@ -458,14 +458,14 @@ fn render_switch_button(app: &AppState, frame: &mut Frame, area: Rect) {
     );
 
     // Badge: 常态空心(=入口), blocked 时实心红(=需要立刻处理);
-    // 用 "  ○"(前2空格) + 行居中, 圆右移约1列
+    // 用 " ○ "(前1+圆+后1) 行居中, 圆在格4, 与 switch 文字(7字符)中心4.5精确对齐
     let (symbol, style) = if global_agent_counts(app).blocked > 0 {
         ("●", Style::default().fg(p.red).bg(p.surface0))
     } else {
         ("○", Style::default().fg(p.overlay0).bg(p.surface0))
     };
     frame.render_widget(
-        Paragraph::new(format!("  {symbol}"))
+        Paragraph::new(format!(" {symbol} "))
             .style(style)
             .alignment(Alignment::Center),
         Rect::new(area.x, area.y, area.width, 1),

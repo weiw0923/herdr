@@ -21,6 +21,7 @@ use crate::layout::PaneId;
 use crate::terminal::TerminalRuntimeRegistry;
 
 const SWITCH_BUTTON_WIDTH: u16 = 10;
+const TAB_BUTTON_WIDTH: u16 = 5;
 
 #[derive(Debug, Clone, Copy, Default)]
 pub(crate) struct MobileHeaderHitAreas {
@@ -215,8 +216,8 @@ pub(crate) fn render_mobile_header(
     fill_rect(frame, area, Style::default().bg(p.panel_bg));
 
     let switch = app.view.mobile_menu_hit_area;
-    // switch 块左侧再辟一个 tab 块(同宽), 两者最左列各画竖线分隔
-    let tab_w = SWITCH_BUTTON_WIDTH.min(area.width);
+    // switch 块左侧再辟一个 tab 块(窄, 只放计数+文字)
+    let tab_w = TAB_BUTTON_WIDTH.min(area.width);
     let tab = Rect::new(
         switch.x.saturating_sub(tab_w),
         switch.y,
@@ -403,11 +404,7 @@ fn render_tab_button(app: &AppState, frame: &mut Frame, area: Rect) {
     }
     let p = &app.palette;
     fill_rect(frame, area, Style::default().bg(p.surface0));
-    for y in area.y..area.y + area.height {
-        frame.buffer_mut()[(area.x, y)]
-            .set_symbol("│")
-            .set_style(Style::default().fg(p.surface_dim).bg(p.surface0));
-    }
+    // 无竖线: tab 块与左侧状态区颜色不同, 靠颜色区分
     let Some(ws) = app.active.and_then(|idx| app.workspaces.get(idx)) else {
         return;
     };

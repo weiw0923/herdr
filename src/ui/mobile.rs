@@ -408,34 +408,29 @@ fn render_tab_button(app: &AppState, frame: &mut Frame, area: Rect) {
     let Some(ws) = app.active.and_then(|idx| app.workspaces.get(idx)) else {
         return;
     };
-    // 第1行: 纯计数; 第2行: "tab" 文字 (全块宽居中, 含左侧无竖线故全块即文本区)
+    // 第1行: 纯计数(不加粗); 第2行: "tab" 文字(加粗)
     if area.height > 1 {
         frame.render_widget(
             Paragraph::new(mobile_tab_counter(ws))
-                .style(
-                    Style::default()
-                        .fg(p.text)
-                        .bg(p.surface0)
-                        .add_modifier(Modifier::BOLD),
-                )
+                .style(Style::default().fg(p.text).bg(p.surface0))
                 .alignment(Alignment::Center),
             Rect::new(area.x, area.y, area.width, 1),
         );
         frame.render_widget(
             Paragraph::new("tab")
-                .style(Style::default().fg(p.overlay1).bg(p.surface0))
+                .style(
+                    Style::default()
+                        .fg(p.overlay1)
+                        .bg(p.surface0)
+                        .add_modifier(Modifier::BOLD),
+                )
                 .alignment(Alignment::Center),
             Rect::new(area.x, area.y + 1, area.width, 1),
         );
     } else {
         frame.render_widget(
             Paragraph::new(mobile_tab_counter(ws))
-                .style(
-                    Style::default()
-                        .fg(p.text)
-                        .bg(p.surface0)
-                        .add_modifier(Modifier::BOLD),
-                )
+                .style(Style::default().fg(p.text).bg(p.surface0))
                 .alignment(Alignment::Center),
             Rect::new(area.x, area.y, area.width, 1),
         );
@@ -448,12 +443,8 @@ fn render_switch_button(app: &AppState, frame: &mut Frame, area: Rect) {
     }
     let p = &app.palette;
     fill_rect(frame, area, Style::default().bg(p.surface0));
-    for y in area.y..area.y + area.height {
-        frame.buffer_mut()[(area.x, y)]
-            .set_symbol("│")
-            .set_style(Style::default().fg(p.surface_dim).bg(p.surface0));
-    }
     let label_y = if area.height > 1 { area.y + 1 } else { area.y };
+    // 文字(全宽居中, 与 badge 圆心对齐)
     frame.render_widget(
         Paragraph::new("switch")
             .style(
@@ -463,7 +454,6 @@ fn render_switch_button(app: &AppState, frame: &mut Frame, area: Rect) {
                     .add_modifier(Modifier::BOLD),
             )
             .alignment(Alignment::Center),
-        // 全块宽居中(含竖线列), 与 badge 圆心对齐
         Rect::new(area.x, label_y, area.width, 1),
     );
 
@@ -477,6 +467,13 @@ fn render_switch_button(app: &AppState, frame: &mut Frame, area: Rect) {
     frame.buffer_mut()[(bx, area.y)]
         .set_symbol(symbol)
         .set_style(style);
+
+    // 竖线最后画, 覆盖在文字/badge背景之上, 保证整列可见
+    for y in area.y..area.y + area.height {
+        frame.buffer_mut()[(area.x, y)]
+            .set_symbol("│")
+            .set_style(Style::default().fg(p.surface_dim).bg(p.surface0));
+    }
 }
 
 fn render_close_button(app: &AppState, frame: &mut Frame, area: Rect) {

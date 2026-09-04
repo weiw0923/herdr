@@ -327,7 +327,13 @@ fn render_header_status(
     };
 
     let (state, seen) = ws.aggregate_state(&app.terminals);
-    let (dot, dot_style) = state_icon(state, seen, app.status_indicators, p);
+    let (_icon, dot_style) = state_icon(state, seen, app.status_indicators, p);
+    // Dots: 无 agent(Unknown)显示空心灰, 有 agent 恒实心, 仅靠颜色区分状态
+    let dot = match (app.status_indicators, state) {
+        (crate::config::StatusIndicatorStyle::Dots, crate::detect::AgentState::Unknown) => "○",
+        (crate::config::StatusIndicatorStyle::Dots, _) => "●",
+        (crate::config::StatusIndicatorStyle::Symbols, _) => state_icon_symbol(state, seen, app.status_indicators),
+    };
     let tab_label = mobile_tab_status(ws);
     let row1 = Rect::new(area.x, area.y, area.width, 1);
     let tab_w = display_width_u16(&tab_label)
@@ -403,15 +409,16 @@ fn render_switch_button(app: &AppState, frame: &mut Frame, area: Rect) {
         Rect::new(area.x + 1, label_y, area.width.saturating_sub(1), 1),
     );
 
-    // Attention badge: a blocked agent anywhere makes the button itself read as
-    // "tap me" without the user reading the summary row.
-    if global_agent_counts(app).blocked > 0 {
-        let bx = area.x + area.width.saturating_sub(1);
-        let (symbol, style) = state_icon(AgentState::Blocked, true, app.status_indicators, p);
-        frame.buffer_mut()[(bx, area.y)]
-            .set_symbol(symbol)
-            .set_style(style.bg(p.surface0));
-    }
+    // Badge: 常态空心(=入口), blocked 时实心红(=需要立刻处理)
+    let bx = area.x + area.width.saturating_sub(1);
+    let (symbol, style) = if global_agent_counts(app).blocked > 0 {
+        ("●", Style::default().fg(p.red).bg(p.surface0))
+    } else {
+        ("○", Style::default().fg(p.overlay0).bg(p.surface0))
+    };
+    frame.buffer_mut()[(bx, area.y)]
+        .set_symbol(symbol)
+        .set_style(style);
 }
 
 fn render_close_button(app: &AppState, frame: &mut Frame, area: Rect) {

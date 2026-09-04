@@ -91,9 +91,14 @@ impl Workspace {
             .iter()
             .flat_map(|tab| tab.panes.values())
             .filter_map(|pane| {
-                terminals
-                    .get(&pane.attached_terminal_id)
-                    .map(|terminal| (terminal.state, pane.seen))
+                let terminal = terminals.get(&pane.attached_terminal_id)?;
+                // 仅统计真正有关联 agent 的 pane; 纯 shell(无检测 agent)视为无 agent
+                if terminal.detected_agent.is_none()
+                    && terminal.effective_known_agent().is_none()
+                {
+                    return None;
+                }
+                Some((terminal.state, pane.seen))
             })
             .max_by_key(|(state, seen)| pane_attention_priority(*state, *seen))
             .unwrap_or((AgentState::Unknown, true))

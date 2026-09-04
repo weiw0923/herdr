@@ -215,10 +215,19 @@ pub(crate) fn render_mobile_header(
     fill_rect(frame, area, Style::default().bg(p.panel_bg));
 
     let switch = app.view.mobile_menu_hit_area;
-    let status_w = switch.x.saturating_sub(area.x).saturating_sub(1);
+    // switch 块左侧再辟一个 tab 块(同宽), 两者最左列各画竖线分隔
+    let tab_w = SWITCH_BUTTON_WIDTH.min(area.width);
+    let tab = Rect::new(
+        switch.x.saturating_sub(tab_w),
+        switch.y,
+        tab_w.min(switch.x.saturating_sub(area.x)),
+        switch.height,
+    );
+    let status_w = tab.x.saturating_sub(area.x);
     let status = Rect::new(area.x, area.y, status_w, area.height);
 
     render_header_status(app, terminal_runtimes, frame, status);
+    render_tab_button(app, frame, tab);
     render_switch_button(app, frame, switch);
 }
 
@@ -334,12 +343,7 @@ fn render_header_status(
         (crate::config::StatusIndicatorStyle::Dots, _) => "●",
         (crate::config::StatusIndicatorStyle::Symbols, _) => state_icon_symbol(state, seen, app.status_indicators),
     };
-    let tab_label = mobile_tab_status(ws);
     let row1 = Rect::new(area.x, area.y, area.width, 1);
-    let tab_w = display_width_u16(&tab_label)
-        .saturating_add(1)
-        .min(area.width);
-    let name_w = area.width.saturating_sub(tab_w);
 
     frame.render_widget(
         Paragraph::new(Line::from(vec![
@@ -357,17 +361,6 @@ fn render_header_status(
         ])),
         Rect::new(row1.x, row1.y, area.width, 1),
     );
-    frame.render_widget(
-        Paragraph::new(tab_label)
-            .style(
-                Style::default()
-                    .fg(p.overlay1)
-                    .bg(p.panel_bg)
-                    .add_modifier(Modifier::BOLD),
-            )
-            .alignment(Alignment::Right),
-        Rect::new(row1.x + name_w, row1.y, tab_w, 1),
-    );
 
     if area.height > 1 {
         // 第2行: 统一左内边距1空格 + 状态点 + agent 汇总
@@ -380,7 +373,7 @@ fn render_header_status(
             ])),
             Rect::new(row2.x, row2.y, 3.min(area.width), 1),
         );
-        let summary_w = area.width.saturating_sub(4).saturating_sub(tab_w);
+        let summary_w = area.width.saturating_sub(4);
         frame.render_widget(
             Paragraph::new(agent_summary_line(app, p, summary_w)),
             Rect::new(row2.x + 3, row2.y, summary_w, 1),
@@ -396,6 +389,59 @@ fn mobile_tab_status(ws: &crate::workspace::Workspace) -> String {
         format!("tab {tab_label}")
     } else {
         format!("tab {tab_label} · {}/{}", ws.active_tab + 1, ws.tabs.len())
+    }
+}
+
+/// tab 块计数器: 当前位/总数 (如 "1/2")
+fn mobile_tab_counter(ws: &crate::workspace::Workspace) -> String {
+    format!("{}/{}", ws.active_tab + 1, ws.tabs.len())
+}
+
+fn render_tab_button(app: &AppState, frame: &mut Frame, area: Rect) {
+    if area.width == 0 || area.height == 0 {
+        return;
+    }
+    let p = &app.palette;
+    fill_rect(frame, area, Style::default().bg(p.surface0));
+    for y in area.y..area.y + area.height {
+        frame.buffer_mut()[(area.x, y)]
+            .set_symbol("│")
+            .set_style(Style::default().fg(p.surface_dim).bg(p.surface0));
+    }
+    let Some(ws) = app.active.and_then(|idx| app.workspaces.get(idx)) else {
+        return;
+    };
+    // 第1行: 纯计数; 第2行: "tab" 文字
+    if area.height > 1 {
+        frame.render_widget(
+            Paragraph::new(mobile_tab_counter(ws))
+                .style(
+                    Style::default()
+                        .fg(p.text)
+                        .bg(p.surface0)
+                        .add_modifier(Modifier::BOLD),
+                )
+                .alignment(Alignment::Center),
+            Rect::new(area.x + 1, area.y, area.width.saturating_sub(1), 1),
+        );
+        frame.render_widget(
+            Paragraph::new("tab")
+                .style(Style::default().fg(p.overlay1).bg(p.surface0))
+                .alignment(Alignment::Center),
+            Rect::new(area.x + 1, area.y + 1, area.width.saturating_sub(1), 1),
+        );
+    } else {
+        frame.render_widget(
+            Paragraph::new(mobile_tab_counter(ws))
+                .style(
+                    Style::default()
+                        .fg(p.text)
+                        .bg(p.surface0)
+                        .add_modifier(Modifier::BOLD),
+                )
+                .alignment(Alignment::Center),
+            Rect::new(area.x + 1, area.y, area.width.saturating_sub(1), 1),
+        );
     }
 }
 

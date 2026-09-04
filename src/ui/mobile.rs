@@ -343,11 +343,10 @@ fn render_header_status(
 
     frame.render_widget(
         Paragraph::new(Line::from(vec![
-            Span::raw("  "),
             Span::styled(
                 truncate_end(
                     &ws.display_name_from(&app.terminals, terminal_runtimes),
-                    area.width.saturating_sub(4) as usize,
+                    area.width.saturating_sub(2) as usize,
                 ),
                 Style::default()
                     .fg(p.text)

@@ -343,10 +343,11 @@ fn render_header_status(
 
     frame.render_widget(
         Paragraph::new(Line::from(vec![
+            Span::raw("  "),
             Span::styled(
                 truncate_end(
                     &ws.display_name_from(&app.terminals, terminal_runtimes),
-                    area.width.saturating_sub(2) as usize,
+                    area.width.saturating_sub(4) as usize,
                 ),
                 Style::default()
                     .fg(p.text)
@@ -369,18 +370,21 @@ fn render_header_status(
     );
 
     if area.height > 1 {
-        // 第2行: agent 汇总(左) + 状态点在 tab 文本区域下方水平居中
+        // 第2行: 状态点(最左) + agent 汇总(与第1行 workspace 名同起点)
         let row2 = Rect::new(area.x, area.y + 1, area.width, 1);
-        let summary_w = area.width.saturating_sub(tab_w).saturating_sub(1);
+        // 状态点占 2 列(点+空格), 汇总紧随其后, 起点与第1行内容对齐
+        frame.render_widget(
+            Paragraph::new(Line::from(vec![
+                Span::styled(dot, dot_style.bg(p.panel_bg)),
+                Span::raw(" "),
+            ])),
+            Rect::new(row2.x, row2.y, 2.min(area.width), 1),
+        );
+        let summary_w = area.width.saturating_sub(3).saturating_sub(tab_w);
         frame.render_widget(
             Paragraph::new(agent_summary_line(app, p, summary_w)),
-            Rect::new(row2.x, row2.y, summary_w, 1),
+            Rect::new(row2.x + 2, row2.y, summary_w, 1),
         );
-        // dot 中心对齐 tab 区域中心: tab 起点(name_w) + tab 宽/2
-        let dot_cx = name_w.saturating_add(tab_w / 2).min(area.width.saturating_sub(1));
-        frame.buffer_mut()[(row2.x + dot_cx, row2.y)]
-            .set_symbol(dot)
-            .set_style(dot_style.bg(p.panel_bg));
     }
 }
 
@@ -420,9 +424,7 @@ fn render_switch_button(app: &AppState, frame: &mut Frame, area: Rect) {
     );
 
     // Badge: 常态空心(=入口), blocked 时实心红(=需要立刻处理); 在 switch 按钮区内水平居中
-    let bx = area
-        .x
-        .saturating_add(area.width.saturating_sub(SWITCH_BUTTON_WIDTH.min(area.width)) / 2);
+    let bx = area.x.saturating_add(area.width / 2);
     let (symbol, style) = if global_agent_counts(app).blocked > 0 {
         ("●", Style::default().fg(p.red).bg(p.surface0))
     } else {

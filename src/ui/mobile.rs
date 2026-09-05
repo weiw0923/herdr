@@ -328,7 +328,7 @@ fn render_header_status(
         return;
     };
 
-    let (state, seen) = ws.aggregate_state(&app.terminals);
+    let (state, seen) = ws.aggregate_active_tab_state(&app.terminals);
     let (_icon, dot_style) = state_icon(state, seen, app.status_indicators, p);
     // Dots: 无 agent(Unknown)显示空心灰, 有 agent 恒实心, 仅靠颜色区分状态
     let dot = match (app.status_indicators, state) {

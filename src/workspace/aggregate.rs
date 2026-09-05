@@ -104,6 +104,29 @@ impl Workspace {
             .unwrap_or((AgentState::Unknown, true))
     }
 
+    /// 只聚合当前 active tab 的 plane 状态(用于 mobile 头部显示)
+    pub fn aggregate_active_tab_state(
+        &self,
+        terminals: &HashMap<TerminalId, TerminalState>,
+    ) -> (AgentState, bool) {
+        let Some(tab) = self.active_tab() else {
+            return (AgentState::Unknown, true);
+        };
+        tab.panes
+            .values()
+            .filter_map(|pane| {
+                let terminal = terminals.get(&pane.attached_terminal_id)?;
+                if terminal.detected_agent.is_none()
+                    && terminal.effective_known_agent().is_none()
+                {
+                    return None;
+                }
+                Some((terminal.state, pane.seen))
+            })
+            .max_by_key(|(state, seen)| pane_attention_priority(*state, *seen))
+            .unwrap_or((AgentState::Unknown, true))
+    }
+
     pub fn pane_details(&self, terminals: &HashMap<TerminalId, TerminalState>) -> Vec<PaneDetail> {
         let multi_tab = self.tabs.len() > 1;
         self.tabs

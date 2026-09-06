@@ -309,13 +309,14 @@ pub(crate) fn render_mobile_panel(
         return;
     }
 
-    // demo: 背景只画下拉区域(header 下方 viewport + close 区), 不全屏遮罩
+    // 用 mobile_screen_rect(与命中/close 一致的 screen)做渲染基准, 避免右侧边界错位
     let p = &app.palette;
+    let screen = mobile_screen_rect(app);
     let areas = mobile_switcher_areas(app);
     let dropdown = Rect::new(
-        area.x,
+        screen.x,
         areas.viewport.y,
-        area.width,
+        screen.width,
         areas.viewport.height,
     );
     frame.render_widget(Clear, dropdown);

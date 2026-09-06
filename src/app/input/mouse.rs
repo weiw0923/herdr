@@ -1151,11 +1151,13 @@ impl AppState {
     }
 
     fn handle_mobile_mouse(&mut self, mouse: MouseEvent) -> MobileMouseResult {
-        // 点中 switch(menu)区域 → 总是打开/刷新下拉(解决 mode 残留导致点 sidebar 无效)
+        // 点中 switch(menu)区域 → 总是打开/刷新下拉; 并清除本次按下记录
+        // 避免同一次点击的 Up 被误判为"点下拉外→关闭"(打开与关闭竞争)
         if matches!(mouse.kind, MouseEventKind::Down(MouseButton::Left))
             && rect_contains(self.view.mobile_menu_hit_area, mouse.column, mouse.row)
         {
             self.mobile_switcher_scroll = 0;
+            self.mobile_close_press = None;
             self.mode = Mode::Navigate;
             return MobileMouseResult::Consumed;
         }

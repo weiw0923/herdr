@@ -24,7 +24,7 @@ const SWITCH_BUTTON_WIDTH: u16 = 9;
 const ENTRY_ROWS_PER_ITEM: usize = 3;
 const TAB_BUTTON_WIDTH: u16 = 5;
 /// demo: 下拉菜单最大高度(行) — 内容自适应, 但不超过屏幕 2/3
-const MOBILE_DROPDOWN_MAX_HEIGHT: u16 = 40;
+const MOBILE_DROPDOWN_MAX_HEIGHT: u16 = 12;
 
 #[derive(Debug, Clone, Copy, Default)]
 pub(crate) struct MobileHeaderHitAreas {
@@ -85,7 +85,8 @@ pub(crate) fn mobile_switcher_areas(app: &AppState) -> MobileSwitcherAreas {
         close_w,
         header_h,
     );
-    // demo: 下拉菜单从 header 下方弹出, 高度 = min(内容高, 屏幕2/3)
+    // demo: 下拉菜单从 header 下方弹出, 高度 = min(内容高, 屏幕2/3, 12行)
+    // 键盘弹出后受限于屏幕, viewport 可能更小, 内容超高时可滚动
     let content_h = mobile_switcher_content_height(app) as u16;
     let max_avail = screen
         .height

@@ -23,8 +23,8 @@ use crate::terminal::TerminalRuntimeRegistry;
 const SWITCH_BUTTON_WIDTH: u16 = 9;
 const ENTRY_ROWS_PER_ITEM: usize = 3;
 const TAB_BUTTON_WIDTH: u16 = 5;
-/// demo: 下拉菜单高度(行)
-const MOBILE_DROPDOWN_HEIGHT: u16 = 10;
+/// demo: 下拉菜单最大高度(行) — 内容自适应, 但不超过屏幕 2/3
+const MOBILE_DROPDOWN_MAX_HEIGHT: u16 = 40;
 
 #[derive(Debug, Clone, Copy, Default)]
 pub(crate) struct MobileHeaderHitAreas {
@@ -85,8 +85,17 @@ pub(crate) fn mobile_switcher_areas(app: &AppState) -> MobileSwitcherAreas {
         close_w,
         header_h,
     );
-    // demo: 下拉菜单从 header 下方弹出, 高度固定, 不占全屏
-    let dropdown_h = MOBILE_DROPDOWN_HEIGHT.min(screen.height.saturating_sub(header_h + 1));
+    // demo: 下拉菜单从 header 下方弹出, 高度 = min(内容高, 屏幕2/3)
+    let content_h = mobile_switcher_content_height(app) as u16;
+    let max_avail = screen
+        .height
+        .saturating_sub(header_h + 1)
+        .saturating_mul(2)
+        .saturating_div(3);
+    let dropdown_h = content_h
+        .min(max_avail)
+        .min(MOBILE_DROPDOWN_MAX_HEIGHT)
+        .max(1);
     let viewport = Rect::new(
         screen.x,
         screen.y + header_h + 1,

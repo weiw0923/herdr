@@ -1178,18 +1178,33 @@ impl AppState {
                     return MobileMouseResult::Consumed;
                 }
                 MouseEventKind::Up(_) => {
-                    // 手指抬起: 若此刻在 close 内且按下也在 close 内 → 关闭
+                    // 手指抬起 = 点击完成: 用按下位置决定动作
                     self.mobile_drag_last_row = None;
-                    let areas = crate::ui::mobile_switcher_areas(self);
-                    let should_close = self
-                        .mobile_close_press
-                        .is_some_and(|(dc, dr)| {
-                            rect_contains(areas.close, dc as u16, dr as u16)
-                                && rect_contains(areas.close, mouse.column, mouse.row)
-                        });
+                    let press = self.mobile_close_press.take();
                     self.mobile_close_press = None;
-                    if should_close {
-                        self.mode = Mode::Terminal;
+                    // 优先 close(按下+抬起都在 close 内)
+                    let areas = crate::ui::mobile_switcher_areas(self);
+                    if let Some((dc, dr)) = press {
+                        if rect_contains(areas.close, dc as u16, dr as u16)
+                            && rect_contains(areas.close, mouse.column, mouse.row)
+                        {
+                            self.mode = Mode::Terminal;
+                            return MobileMouseResult::Consumed;
+                        }
+                        // 否则在按下位置命中下拉目标 → 选择
+                        if let Some(target) = crate::ui::mobile_switcher_target_at(self, dc as u16, dr as u16) {
+                            return self.mobile_apply_target(target);
+                        }
+                        // 未命中(点空白)且在下拉外 → 关闭
+                        let dropdown = Rect::new(
+                            areas.viewport.x,
+                            areas.viewport.y,
+                            areas.viewport.width,
+                            areas.viewport.height,
+                        );
+                        if !rect_contains(dropdown, dc as u16, dr as u16) {
+                            self.mode = Mode::Terminal;
+                        }
                     }
                     return MobileMouseResult::Consumed;
                 }
@@ -1197,6 +1212,8 @@ impl AppState {
                     self.mobile_drag_last_row = Some(mouse.row as i16);
                     // 记录按下位置(用于 close 纯点击判定); 是否在 close 内由 Up 时判断
                     self.mobile_close_press = Some((mouse.column as i16, mouse.row as i16));
+                    // 按下不立即执行选择(避免把滑动误判为点击), 由后续 Up/滚动处理
+                    return MobileMouseResult::Consumed;
                 }
                 _ => return MobileMouseResult::Consumed,
             }
@@ -1231,13 +1248,22 @@ impl AppState {
         // 非 close 点击: 清除 close 按下记录
         self.mobile_close_press = None;
 
-        match crate::ui::mobile_switcher_target_at(self, mouse.column, mouse.row) {
+        // 兼容: Down fall-through 到此(非 Navigate 也会到这), 保持原路径不选
+        if let Some(action) = self.mobile_apply_target_at(mouse.column, mouse.row) {
+            return action;
+        }
+        MobileMouseResult::Consumed
+    }
+
+    /// 命中并执行下拉目标(选中/关闭); 命中下拉内则返回对应 action, 命中外部返回关闭
+    fn mobile_apply_target_at(&mut self, col: u16, row: u16) -> Option<MobileMouseResult> {
+        match crate::ui::mobile_switcher_target_at(self, col, row) {
             Some(crate::ui::MobileSwitcherTarget::NewWorkspace) => {
-                return MobileMouseResult::Action(MouseAction::NewWorkspace);
+                Some(MobileMouseResult::Action(MouseAction::NewWorkspace))
             }
             Some(crate::ui::MobileSwitcherTarget::Workspace(ws_idx)) => {
                 self.mode = Mode::Terminal;
-                return MobileMouseResult::Action(MouseAction::FocusWorkspace { ws_idx });
+                Some(MobileMouseResult::Action(MouseAction::FocusWorkspace { ws_idx }))
             }
             Some(crate::ui::MobileSwitcherTarget::NewTab) => {
                 if self.prompt_new_tab_name {
@@ -1246,27 +1272,25 @@ impl AppState {
                     self.request_new_tab = true;
                     self.mode = Mode::Terminal;
                 }
+                Some(MobileMouseResult::Consumed)
             }
             Some(crate::ui::MobileSwitcherTarget::Tab(tab_idx)) => {
                 self.mode = Mode::Terminal;
-                return MobileMouseResult::Action(MouseAction::FocusTab { tab_idx });
+                Some(MobileMouseResult::Action(MouseAction::FocusTab { tab_idx }))
             }
-            Some(crate::ui::MobileSwitcherTarget::Agent {
-                ws_idx,
-                tab_idx: _,
-                pane_id,
-            }) => {
+            Some(crate::ui::MobileSwitcherTarget::Agent { ws_idx, tab_idx: _, pane_id }) => {
                 self.mode = Mode::Terminal;
-                return MobileMouseResult::Action(MouseAction::FocusPane { ws_idx, pane_id });
+                Some(MobileMouseResult::Action(MouseAction::FocusPane { ws_idx, pane_id }))
             }
             Some(crate::ui::MobileSwitcherTarget::Menu(action_idx)) => {
                 let actions = global_menu_actions(self);
                 if let Some(action) = actions.get(action_idx).copied() {
                     apply_global_menu_action(self, action);
                 }
+                Some(MobileMouseResult::Consumed)
             }
             None => {
-                // 点击下拉框(viewport)之外 → 关闭菜单
+                // 点击下拉框之外 → 关闭
                 let areas = crate::ui::mobile_switcher_areas(self);
                 let dropdown = Rect::new(
                     areas.viewport.x,
@@ -1274,13 +1298,49 @@ impl AppState {
                     areas.viewport.width,
                     areas.viewport.height,
                 );
-                if !rect_contains(dropdown, mouse.column, mouse.row) {
+                if !rect_contains(dropdown, col, row) {
                     self.mode = Mode::Terminal;
                 }
+                Some(MobileMouseResult::Consumed)
             }
         }
+    }
 
-        MobileMouseResult::Consumed
+    /// 供 Up 使用: 命中后返回对应 action(不处理 None 关闭, 由调用方决定)
+    fn mobile_apply_target(&mut self, target: crate::ui::MobileSwitcherTarget) -> MobileMouseResult {
+        match target {
+            crate::ui::MobileSwitcherTarget::NewWorkspace => {
+                MobileMouseResult::Action(MouseAction::NewWorkspace)
+            }
+            crate::ui::MobileSwitcherTarget::Workspace(ws_idx) => {
+                self.mode = Mode::Terminal;
+                MobileMouseResult::Action(MouseAction::FocusWorkspace { ws_idx })
+            }
+            crate::ui::MobileSwitcherTarget::NewTab => {
+                if self.prompt_new_tab_name {
+                    open_new_tab_dialog(self);
+                } else {
+                    self.request_new_tab = true;
+                    self.mode = Mode::Terminal;
+                }
+                MobileMouseResult::Consumed
+            }
+            crate::ui::MobileSwitcherTarget::Tab(tab_idx) => {
+                self.mode = Mode::Terminal;
+                MobileMouseResult::Action(MouseAction::FocusTab { tab_idx })
+            }
+            crate::ui::MobileSwitcherTarget::Agent { ws_idx, tab_idx: _, pane_id } => {
+                self.mode = Mode::Terminal;
+                MobileMouseResult::Action(MouseAction::FocusPane { ws_idx, pane_id })
+            }
+            crate::ui::MobileSwitcherTarget::Menu(action_idx) => {
+                let actions = global_menu_actions(self);
+                if let Some(action) = actions.get(action_idx).copied() {
+                    apply_global_menu_action(self, action);
+                }
+                MobileMouseResult::Consumed
+            }
+        }
     }
 
     fn scroll_mobile_switcher_at(&mut self, _col: u16, _row: u16, delta: i16) {
@@ -1289,13 +1349,6 @@ impl AppState {
             &mut self.mobile_switcher_scroll,
             delta.saturating_mul(3),
             max_scroll,
-        );
-        // debug: 打印滚动关键值
-        let viewport_h = crate::ui::mobile_switcher_areas(self).viewport.height as usize;
-        let content = max_scroll + viewport_h;
-        let _ = std::fs::write(
-            "/tmp/herdr-scroll-debug.log",
-            format!("delta={} scroll={} max={} content={} viewport={}\n", delta, self.mobile_switcher_scroll, max_scroll, content, viewport_h),
         );
     }
 

@@ -22,9 +22,10 @@ use crate::terminal::TerminalRuntimeRegistry;
 
 const SWITCH_BUTTON_WIDTH: u16 = 9;
 const ENTRY_ROWS_PER_ITEM: usize = 2;
+/// 下拉菜单最大高度 = 屏幕可用高度的比例(内容超高时可滚动区域)
+const MOBILE_DROPDOWN_SCREEN_FRAC: f32 = 0.6;
 const TAB_BUTTON_WIDTH: u16 = 5;
 /// demo: 下拉菜单最大高度(行) — 内容自适应, 但不超过屏幕 2/3
-const MOBILE_DROPDOWN_MAX_HEIGHT: u16 = 40;
 
 #[derive(Debug, Clone, Copy, Default)]
 pub(crate) struct MobileHeaderHitAreas {
@@ -85,18 +86,12 @@ pub(crate) fn mobile_switcher_areas(app: &AppState) -> MobileSwitcherAreas {
         close_w,
         header_h,
     );
-    // demo: 下拉菜单从 header 下方弹出, 高度 = min(内容高, 屏幕2/3, 12行)
-    // 键盘弹出后受限于屏幕, viewport 可能更小, 内容超高时可滚动
+    // 非全屏下拉: 高度 = min(内容高, 屏幕可用高度 * 0.6)
+    // 内容少→全显示; 内容多→固定比例高度可滚动, 滚到底 menu 必可见
     let content_h = mobile_switcher_content_height(app) as u16;
-    let max_avail = screen
-        .height
-        .saturating_sub(header_h + 1)
-        .saturating_mul(2)
-        .saturating_div(3);
-    let dropdown_h = content_h
-        .min(max_avail)
-        .min(MOBILE_DROPDOWN_MAX_HEIGHT)
-        .max(1);
+    let max_avail = ((screen.height.saturating_sub(header_h + 1)) as f32
+        * MOBILE_DROPDOWN_SCREEN_FRAC) as u16;
+    let dropdown_h = content_h.min(max_avail).max(1);
     let viewport = Rect::new(
         screen.x,
         screen.y + header_h + 1,
@@ -309,22 +304,16 @@ pub(crate) fn render_mobile_panel(
         return;
     }
 
-    // 用 mobile_screen_rect(与命中/close 一致的 screen)做渲染基准, 避免右侧边界错位
     let p = &app.palette;
-    let screen = mobile_screen_rect(app);
+    // 非全屏下拉: 只渲染 viewport 区域(不盖住 pane), 背景与 viewport 同范围
     let areas = mobile_switcher_areas(app);
-    let dropdown = Rect::new(
-        screen.x,
-        areas.viewport.y,
-        screen.width,
-        areas.viewport.height,
-    );
+    let dropdown = Rect::new(area.x, areas.viewport.y, area.width, areas.viewport.height);
     frame.render_widget(Clear, dropdown);
     fill_rect(frame, dropdown, Style::default().bg(p.panel_bg));
 
     render_close_button(app, frame, areas.close);
 
-    if dropdown.height > 0 {
+    if dropdown.height > areas.close.height {
         draw_horizontal_rule(
             frame,
             Rect::new(dropdown.x, dropdown.y.saturating_sub(1), dropdown.width, 1),

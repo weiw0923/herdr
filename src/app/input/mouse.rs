@@ -1167,7 +1167,8 @@ impl AppState {
         if self.mode == Mode::Navigate {
             match mouse.kind {
                 MouseEventKind::ScrollUp => {
-                    self.scroll_mobile_switcher_at(mouse.column, mouse.row, -1);
+                    // 键盘收起后手机触摸可能统一发 ScrollUp; 都视作向下滚(看下方)
+                    self.scroll_mobile_switcher_at(mouse.column, mouse.row, 1);
                     return MobileMouseResult::Consumed;
                 }
                 MouseEventKind::ScrollDown => {

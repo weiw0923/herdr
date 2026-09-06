@@ -1151,6 +1151,19 @@ impl AppState {
     }
 
     fn handle_mobile_mouse(&mut self, mouse: MouseEvent) -> MobileMouseResult {
+        {
+            use std::io::Write;
+            let mut f = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open("/tmp/herdr-mouse-debug.log")
+                .unwrap_or_else(|_| std::fs::File::create("/tmp/herdr-mouse-debug.log").unwrap());
+            let _ = writeln!(
+                f,
+                "{:?} mode={:?} col={} row={}",
+                mouse.kind, self.mode, mouse.column, mouse.row
+            );
+        }
         if self.mode == Mode::Navigate {
             match mouse.kind {
                 MouseEventKind::ScrollUp => {

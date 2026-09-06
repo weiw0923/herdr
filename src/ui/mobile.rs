@@ -21,7 +21,7 @@ use crate::layout::PaneId;
 use crate::terminal::TerminalRuntimeRegistry;
 
 const SWITCH_BUTTON_WIDTH: u16 = 9;
-const ENTRY_ROWS_PER_ITEM: usize = 3;
+const ENTRY_ROWS_PER_ITEM: usize = 2;
 const TAB_BUTTON_WIDTH: u16 = 5;
 /// demo: 下拉菜单最大高度(行) — 内容自适应, 但不超过屏幕 2/3
 const MOBILE_DROPDOWN_MAX_HEIGHT: u16 = 40;
@@ -460,7 +460,7 @@ fn render_switch_button(app: &AppState, frame: &mut Frame, area: Rect) {
     let label_y = if area.height > 1 { area.y + 1 } else { area.y };
     // 文字(全宽居中, 与 badge 圆心对齐)
     frame.render_widget(
-        Paragraph::new("sidebar")
+        Paragraph::new("menus")
             .style(
                 Style::default()
                     .fg(p.text)

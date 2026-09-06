@@ -1151,6 +1151,14 @@ impl AppState {
     }
 
     fn handle_mobile_mouse(&mut self, mouse: MouseEvent) -> MobileMouseResult {
+        // 点中 switch(menu)区域 → 总是打开/刷新下拉(解决 mode 残留导致点 sidebar 无效)
+        if matches!(mouse.kind, MouseEventKind::Down(MouseButton::Left))
+            && rect_contains(self.view.mobile_menu_hit_area, mouse.column, mouse.row)
+        {
+            self.mobile_switcher_scroll = 0;
+            self.mode = Mode::Navigate;
+            return MobileMouseResult::Consumed;
+        }
         if self.mode == Mode::Navigate {
             match mouse.kind {
                 MouseEventKind::ScrollUp => {
@@ -1347,7 +1355,7 @@ impl AppState {
         let max_scroll = crate::ui::mobile_switcher_max_scroll(self);
         apply_scroll(
             &mut self.mobile_switcher_scroll,
-            delta.saturating_mul(3),
+            delta.saturating_mul(2),
             max_scroll,
         );
     }

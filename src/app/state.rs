@@ -1427,6 +1427,8 @@ pub struct AppState {
     pub tab_scroll: usize,
     pub tab_scroll_follow_active: bool,
     pub mobile_switcher_scroll: usize,
+    /// 下拉菜单拖拽滚动: 上一次拖拽的行(用于算位移)
+    pub mobile_drag_last_row: Option<i16>,
     // View geometry (computed before render, consumed by render + mouse)
     pub view: ViewState,
     pub(crate) drag: Option<DragState>,
@@ -1811,6 +1813,7 @@ impl AppState {
             tab_scroll: 0,
             tab_scroll_follow_active: true,
             mobile_switcher_scroll: 0,
+            mobile_drag_last_row: None,
             view: ViewState {
                 layout: ViewLayout::Desktop,
                 sidebar_rect: Rect::default(),

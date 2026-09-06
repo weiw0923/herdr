@@ -1161,7 +1161,27 @@ impl AppState {
                     self.scroll_mobile_switcher_at(mouse.column, mouse.row, 1);
                     return MobileMouseResult::Consumed;
                 }
-                MouseEventKind::Down(MouseButton::Left) => {}
+                MouseEventKind::Drag(_) => {
+                    // 触屏拖拽滚动: 用行位移驱动
+                    let cur = mouse.row as i16;
+                    if let Some(last) = self.mobile_drag_last_row {
+                        let max_scroll = crate::ui::mobile_switcher_max_scroll(self);
+                        apply_scroll(
+                            &mut self.mobile_switcher_scroll,
+                            -(cur - last),
+                            max_scroll,
+                        );
+                    }
+                    self.mobile_drag_last_row = Some(cur);
+                    return MobileMouseResult::Consumed;
+                }
+                MouseEventKind::Up(_) => {
+                    // 手指抬起, 结束拖拽跟踪
+                    self.mobile_drag_last_row = None;
+                }
+                MouseEventKind::Down(MouseButton::Left) => {
+                    self.mobile_drag_last_row = Some(mouse.row as i16);
+                }
                 _ => return MobileMouseResult::Consumed,
             }
         } else if !matches!(mouse.kind, MouseEventKind::Down(MouseButton::Left)) {

@@ -23,6 +23,8 @@ use crate::terminal::TerminalRuntimeRegistry;
 const SWITCH_BUTTON_WIDTH: u16 = 9;
 const ENTRY_ROWS_PER_ITEM: usize = 3;
 const TAB_BUTTON_WIDTH: u16 = 5;
+/// demo: 下拉菜单高度(行)
+const MOBILE_DROPDOWN_HEIGHT: u16 = 10;
 
 #[derive(Debug, Clone, Copy, Default)]
 pub(crate) struct MobileHeaderHitAreas {
@@ -83,11 +85,13 @@ pub(crate) fn mobile_switcher_areas(app: &AppState) -> MobileSwitcherAreas {
         close_w,
         header_h,
     );
+    // demo: 下拉菜单从 header 下方弹出, 高度固定, 不占全屏
+    let dropdown_h = MOBILE_DROPDOWN_HEIGHT.min(screen.height.saturating_sub(header_h + 1));
     let viewport = Rect::new(
         screen.x,
         screen.y + header_h + 1,
         screen.width,
-        screen.height.saturating_sub(header_h + 1),
+        dropdown_h,
     );
 
     MobileSwitcherAreas { close, viewport }
@@ -295,17 +299,24 @@ pub(crate) fn render_mobile_panel(
         return;
     }
 
+    // demo: 背景只画下拉区域(header 下方 viewport + close 区), 不全屏遮罩
     let p = &app.palette;
-    frame.render_widget(Clear, area);
-    fill_rect(frame, area, Style::default().bg(p.panel_bg));
-
     let areas = mobile_switcher_areas(app);
+    let dropdown = Rect::new(
+        area.x,
+        areas.viewport.y,
+        area.width,
+        areas.viewport.height,
+    );
+    frame.render_widget(Clear, dropdown);
+    fill_rect(frame, dropdown, Style::default().bg(p.panel_bg));
+
     render_close_button(app, frame, areas.close);
 
-    if area.height > areas.close.height {
+    if dropdown.height > 0 {
         draw_horizontal_rule(
             frame,
-            Rect::new(area.x, area.y + areas.close.height, area.width, 1),
+            Rect::new(dropdown.x, dropdown.y.saturating_sub(1), dropdown.width, 1),
             p,
         );
     }

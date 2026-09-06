@@ -1220,7 +1220,19 @@ impl AppState {
                     apply_global_menu_action(self, action);
                 }
             }
-            None => {}
+            None => {
+                // 点击下拉框(viewport)之外 → 关闭菜单
+                let areas = crate::ui::mobile_switcher_areas(self);
+                let dropdown = Rect::new(
+                    areas.viewport.x,
+                    areas.viewport.y,
+                    areas.viewport.width,
+                    areas.viewport.height,
+                );
+                if !rect_contains(dropdown, mouse.column, mouse.row) {
+                    self.mode = Mode::Terminal;
+                }
+            }
         }
 
         MobileMouseResult::Consumed

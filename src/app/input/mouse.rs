@@ -1287,8 +1287,15 @@ impl AppState {
         let max_scroll = crate::ui::mobile_switcher_max_scroll(self);
         apply_scroll(
             &mut self.mobile_switcher_scroll,
-            delta,
+            delta.saturating_mul(3),
             max_scroll,
+        );
+        // debug: 打印滚动关键值
+        let content = crate::ui::mobile_switcher_content_height(self);
+        let viewport_h = crate::ui::mobile_switcher_areas(self).viewport.height as usize;
+        let _ = std::fs::write(
+            "/tmp/herdr-scroll-debug.log",
+            format!("delta={} scroll={} max={} content={} viewport={}\n", delta, self.mobile_switcher_scroll, max_scroll, content, viewport_h),
         );
     }
 

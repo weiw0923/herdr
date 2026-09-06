@@ -1151,8 +1151,32 @@ impl AppState {
     }
 
     fn handle_mobile_mouse(&mut self, mouse: MouseEvent) -> MobileMouseResult {
+        // 滑动优先: ScrollUp/Down/Drag 无条件走下拉滚动, 不与打开/关闭/选择抢
+        match mouse.kind {
+            MouseEventKind::ScrollUp => {
+                self.scroll_mobile_switcher_at(mouse.column, mouse.row, -1);
+                return MobileMouseResult::Consumed;
+            }
+            MouseEventKind::ScrollDown => {
+                self.scroll_mobile_switcher_at(mouse.column, mouse.row, 1);
+                return MobileMouseResult::Consumed;
+            }
+            MouseEventKind::Drag(_) => {
+                let cur = mouse.row as i16;
+                if let Some(last) = self.mobile_drag_last_row {
+                    let max_scroll = crate::ui::mobile_switcher_max_scroll(self);
+                    apply_scroll(
+                        &mut self.mobile_switcher_scroll,
+                        -(cur - last),
+                        max_scroll,
+                    );
+                }
+                self.mobile_drag_last_row = Some(cur);
+                return MobileMouseResult::Consumed;
+            }
+            _ => {}
+        }
         // 点中 switch(menu)区域 → 总是打开/刷新下拉; 并清除本次按下记录
-        // 避免同一次点击的 Up 被误判为"点下拉外→关闭"(打开与关闭竞争)
         if matches!(mouse.kind, MouseEventKind::Down(MouseButton::Left))
             && rect_contains(self.view.mobile_menu_hit_area, mouse.column, mouse.row)
         {
@@ -1163,30 +1187,6 @@ impl AppState {
         }
         if self.mode == Mode::Navigate {
             match mouse.kind {
-                MouseEventKind::ScrollUp => {
-                    // 向上滚(回看上方)
-                    self.scroll_mobile_switcher_at(mouse.column, mouse.row, -1);
-                    return MobileMouseResult::Consumed;
-                }
-                MouseEventKind::ScrollDown => {
-                    // 向下滚(看下方)
-                    self.scroll_mobile_switcher_at(mouse.column, mouse.row, 1);
-                    return MobileMouseResult::Consumed;
-                }
-                MouseEventKind::Drag(_) => {
-                    // 触屏拖拽滚动: 用行位移驱动
-                    let cur = mouse.row as i16;
-                    if let Some(last) = self.mobile_drag_last_row {
-                        let max_scroll = crate::ui::mobile_switcher_max_scroll(self);
-                        apply_scroll(
-                            &mut self.mobile_switcher_scroll,
-                            -(cur - last),
-                            max_scroll,
-                        );
-                    }
-                    self.mobile_drag_last_row = Some(cur);
-                    return MobileMouseResult::Consumed;
-                }
                 MouseEventKind::Up(_) => {
                     // 手指抬起 = 点击完成: 用按下位置决定动作
                     self.mobile_drag_last_row = None;

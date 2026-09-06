@@ -21,7 +21,7 @@ use crate::layout::PaneId;
 use crate::terminal::TerminalRuntimeRegistry;
 
 const SWITCH_BUTTON_WIDTH: u16 = 9;
-const ENTRY_ROWS_PER_ITEM: usize = 2;
+const ENTRY_ROWS_PER_ITEM: usize = 3;
 /// 下拉菜单最大高度 = 屏幕可用高度的比例(内容超高时可滚动区域)
 const MOBILE_DROPDOWN_SCREEN_FRAC: f32 = 0.6;
 const TAB_BUTTON_WIDTH: u16 = 5;

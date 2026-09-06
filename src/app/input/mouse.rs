@@ -1151,27 +1151,15 @@ impl AppState {
     }
 
     fn handle_mobile_mouse(&mut self, mouse: MouseEvent) -> MobileMouseResult {
-        {
-            use std::io::Write;
-            let mut f = std::fs::OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open("/tmp/herdr-mouse-debug.log")
-                .unwrap_or_else(|_| std::fs::File::create("/tmp/herdr-mouse-debug.log").unwrap());
-            let _ = writeln!(
-                f,
-                "{:?} mode={:?} col={} row={}",
-                mouse.kind, self.mode, mouse.column, mouse.row
-            );
-        }
         if self.mode == Mode::Navigate {
             match mouse.kind {
                 MouseEventKind::ScrollUp => {
-                    // 键盘收起后手机触摸可能统一发 ScrollUp; 都视作向下滚(看下方)
-                    self.scroll_mobile_switcher_at(mouse.column, mouse.row, 1);
+                    // 向上滚(回看上方)
+                    self.scroll_mobile_switcher_at(mouse.column, mouse.row, -1);
                     return MobileMouseResult::Consumed;
                 }
                 MouseEventKind::ScrollDown => {
+                    // 向下滚(看下方)
                     self.scroll_mobile_switcher_at(mouse.column, mouse.row, 1);
                     return MobileMouseResult::Consumed;
                 }
@@ -1187,27 +1175,28 @@ impl AppState {
                         );
                     }
                     self.mobile_drag_last_row = Some(cur);
-                    let _ = std::fs::OpenOptions::new()
-                        .create(true)
-                        .append(true)
-                        .open("/tmp/herdr-scroll-debug.log")
-                        .map(|mut f| {
-                            use std::io::Write;
-                            let _ = writeln!(
-                                f,
-                                "drag cur={} scroll={} max={}",
-                                cur, self.mobile_switcher_scroll, crate::ui::mobile_switcher_max_scroll(self)
-                            );
-                        });
                     return MobileMouseResult::Consumed;
                 }
                 MouseEventKind::Up(_) => {
-                    // 手指抬起, 结束拖拽跟踪; 不处理为点击
+                    // 手指抬起: 若此刻在 close 内且按下也在 close 内 → 关闭
                     self.mobile_drag_last_row = None;
+                    let areas = crate::ui::mobile_switcher_areas(self);
+                    let should_close = self
+                        .mobile_close_press
+                        .is_some_and(|(dc, dr)| {
+                            rect_contains(areas.close, dc as u16, dr as u16)
+                                && rect_contains(areas.close, mouse.column, mouse.row)
+                        });
+                    self.mobile_close_press = None;
+                    if should_close {
+                        self.mode = Mode::Terminal;
+                    }
                     return MobileMouseResult::Consumed;
                 }
                 MouseEventKind::Down(MouseButton::Left) => {
                     self.mobile_drag_last_row = Some(mouse.row as i16);
+                    // 记录按下位置(用于 close 纯点击判定); 是否在 close 内由 Up 时判断
+                    self.mobile_close_press = Some((mouse.column as i16, mouse.row as i16));
                 }
                 _ => return MobileMouseResult::Consumed,
             }
@@ -1227,11 +1216,20 @@ impl AppState {
             return MobileMouseResult::Ignored;
         }
 
-        let areas = crate::ui::mobile_switcher_areas(self);
-        if rect_contains(areas.close, mouse.column, mouse.row) {
-            self.mode = Mode::Terminal;
-            return MobileMouseResult::Consumed;
+        // close 关闭: 仅当 Down 和当前(Up) 都在 close 内才算点击; 滑动经过不关闭
+        if self.mobile_close_press.is_some() {
+            let areas = crate::ui::mobile_switcher_areas(self);
+            let (dc, dr) = self.mobile_close_press.unwrap();
+            let in_down = rect_contains(areas.close, dc as u16, dr as u16);
+            let in_now = rect_contains(areas.close, mouse.column, mouse.row);
+            if in_down && in_now {
+                self.mobile_close_press = None;
+                self.mode = Mode::Terminal;
+                return MobileMouseResult::Consumed;
+            }
         }
+        // 非 close 点击: 清除 close 按下记录
+        self.mobile_close_press = None;
 
         match crate::ui::mobile_switcher_target_at(self, mouse.column, mouse.row) {
             Some(crate::ui::MobileSwitcherTarget::NewWorkspace) => {
@@ -1289,22 +1287,9 @@ impl AppState {
         let max_scroll = crate::ui::mobile_switcher_max_scroll(self);
         apply_scroll(
             &mut self.mobile_switcher_scroll,
-            delta.saturating_mul(2),
+            delta,
             max_scroll,
         );
-        // debug 日志
-        let _ = std::fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open("/tmp/herdr-scroll-debug.log")
-            .map(|mut f| {
-                use std::io::Write;
-                let _ = writeln!(
-                    f,
-                    "scroll delta={} scroll={} max={} kind=wheel",
-                    delta, self.mobile_switcher_scroll, max_scroll
-                );
-            });
     }
 
     pub(super) fn screen_rect(&self) -> Rect {

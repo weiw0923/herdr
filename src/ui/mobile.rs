@@ -24,7 +24,7 @@ const SWITCH_BUTTON_WIDTH: u16 = 9;
 const ENTRY_ROWS_PER_ITEM: usize = 3;
 const TAB_BUTTON_WIDTH: u16 = 5;
 /// demo: 下拉菜单最大高度(行) — 内容自适应, 但不超过屏幕 2/3
-const MOBILE_DROPDOWN_MAX_HEIGHT: u16 = 12;
+const MOBILE_DROPDOWN_MAX_HEIGHT: u16 = 40;
 
 #[derive(Debug, Clone, Copy, Default)]
 pub(crate) struct MobileHeaderHitAreas {

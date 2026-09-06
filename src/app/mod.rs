@@ -590,6 +590,7 @@ impl App {
             tab_scroll_follow_active: true,
             mobile_switcher_scroll: 0,
             mobile_drag_last_row: None,
+            mobile_close_press: None,
             view: state::ViewState {
                 layout: state::ViewLayout::Desktop,
                 sidebar_rect: Rect::default(),

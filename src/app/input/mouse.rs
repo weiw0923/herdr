@@ -1186,10 +1186,18 @@ impl AppState {
                         );
                     }
                     self.mobile_drag_last_row = Some(cur);
-                    let _ = std::fs::write(
-                        "/tmp/herdr-scroll-debug.log",
-                        format!("drag cur={} scroll={} max={}\n", cur, self.mobile_switcher_scroll, crate::ui::mobile_switcher_max_scroll(self)),
-                    );
+                    let _ = std::fs::OpenOptions::new()
+                        .create(true)
+                        .append(true)
+                        .open("/tmp/herdr-scroll-debug.log")
+                        .map(|mut f| {
+                            use std::io::Write;
+                            let _ = writeln!(
+                                f,
+                                "drag cur={} scroll={} max={}",
+                                cur, self.mobile_switcher_scroll, crate::ui::mobile_switcher_max_scroll(self)
+                            );
+                        });
                     return MobileMouseResult::Consumed;
                 }
                 MouseEventKind::Up(_) => {
@@ -1284,13 +1292,18 @@ impl AppState {
             max_scroll,
         );
         // debug 日志
-        let _ = std::fs::write(
-            "/tmp/herdr-scroll-debug.log",
-            format!(
-                "scroll_mobile_switcher_at delta={} scroll={} max={} kind=wheel\n",
-                delta, self.mobile_switcher_scroll, max_scroll
-            ),
-        );
+        let _ = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open("/tmp/herdr-scroll-debug.log")
+            .map(|mut f| {
+                use std::io::Write;
+                let _ = writeln!(
+                    f,
+                    "scroll delta={} scroll={} max={} kind=wheel",
+                    delta, self.mobile_switcher_scroll, max_scroll
+                );
+            });
     }
 
     pub(super) fn screen_rect(&self) -> Rect {

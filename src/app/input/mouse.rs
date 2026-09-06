@@ -1176,8 +1176,9 @@ impl AppState {
                     return MobileMouseResult::Consumed;
                 }
                 MouseEventKind::Up(_) => {
-                    // 手指抬起, 结束拖拽跟踪
+                    // 手指抬起, 结束拖拽跟踪; 不处理为点击
                     self.mobile_drag_last_row = None;
+                    return MobileMouseResult::Consumed;
                 }
                 MouseEventKind::Down(MouseButton::Left) => {
                     self.mobile_drag_last_row = Some(mouse.row as i16);

@@ -818,12 +818,6 @@ fn render_mobile_switcher_content(
         }
         doc_y += 1;
     }
-    // debug: 渲染最终 doc_y vs content_height 对拍
-    let calc = mobile_switcher_content_height(app);
-    let _ = std::fs::OpenOptions::new().create(true).append(true)
-        .open("/tmp/herdr-layout-debug.log")
-        .map(|mut f| { use std::io::Write; let _ = writeln!(f,
-            "render doc_y={} content_height={} 差={}", doc_y, calc, doc_y as i64 - calc as i64); });
 }
 
 fn mobile_agent_detail(entry: &AgentPanelEntry) -> String {

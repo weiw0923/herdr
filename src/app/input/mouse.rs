@@ -1151,7 +1151,9 @@ impl AppState {
     }
 
     fn handle_mobile_mouse(&mut self, mouse: MouseEvent) -> MobileMouseResult {
-        // 滑动优先: ScrollUp/Down/Drag 无条件走下拉滚动, 不与打开/关闭/选择抢
+        // 滑动优先(仅菜单打开时): ScrollUp/Down/Drag 走下拉滚动, 不与打开/关闭/选择抢
+        // 菜单未开时滑动透传给 pane(终端触摸滚动), 不吞事件
+        if self.mobile_switcher_open {
         match mouse.kind {
             MouseEventKind::ScrollUp => {
                 self.scroll_mobile_switcher_at(mouse.column, mouse.row, -1);
@@ -1175,6 +1177,7 @@ impl AppState {
                 return MobileMouseResult::Consumed;
             }
             _ => {}
+        }
         }
         // 点中 switch(menu)区域 → 打开/刷新下拉; 菜单已开时该位置是 close, 不再触发打开
         let areas = crate::ui::mobile_switcher_areas(self);
@@ -1372,7 +1375,6 @@ impl AppState {
             delta.saturating_mul(2),
             max_scroll,
         );
-
     }
 
     pub(super) fn screen_rect(&self) -> Rect {

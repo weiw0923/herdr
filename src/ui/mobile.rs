@@ -816,14 +816,6 @@ fn render_mobile_switcher_content(
                 Rect::new(content.x, y, content.width, 1),
             );
         }
-    for label in app.global_menu_labels() {
-        if let Some(y) = visible_y(viewport, app.mobile_switcher_scroll, doc_y) {
-            frame.render_widget(
-                Paragraph::new(format!("  {label}"))
-                    .style(Style::default().fg(p.overlay1).bg(p.panel_bg)),
-                Rect::new(content.x, y, content.width, 1),
-            );
-        }
         doc_y += 1;
     }
     // debug: 渲染最终 doc_y vs content_height 对拍

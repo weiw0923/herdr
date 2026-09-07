@@ -340,7 +340,8 @@ fn compute_mobile_view(
     };
 
     if app.mode == Mode::Navigate {
-        let switcher_viewport_h = area.height.saturating_sub(header_h + 1);
+        // 与鼠标端同一 viewport 口径(下拉高度), 否则每帧把 scroll 钳回 0 → 滚动失效
+        let switcher_viewport_h = mobile_switcher_areas(app).viewport.height;
         let max_scroll = mobile_switcher_max_scroll_for_height(app, switcher_viewport_h);
         app.mobile_switcher_scroll = app.mobile_switcher_scroll.min(max_scroll);
     }

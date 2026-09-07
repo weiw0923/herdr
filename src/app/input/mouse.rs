@@ -1182,23 +1182,21 @@ impl AppState {
         {
             self.mobile_switcher_scroll = 0;
             self.mobile_close_press = None;
-            self.mode = Mode::Navigate;
+            self.mobile_switcher_open = true;
             return MobileMouseResult::Consumed;
         }
-        if self.mode == Mode::Navigate {
+        if self.mobile_switcher_open {
             match mouse.kind {
                 MouseEventKind::Up(_) => {
                     // 手指抬起 = 点击完成: 用按下位置决定动作
                     self.mobile_drag_last_row = None;
                     let press = self.mobile_close_press.take();
                     self.mobile_close_press = None;
-                    // 优先 close(按下+抬起都在 close 内)
+                    // 优先 close: 只要按下在 close 内 → 点按即关闭(灵敏; 滑动误关由滑动优先分支隔离)
                     let areas = crate::ui::mobile_switcher_areas(self);
                     if let Some((dc, dr)) = press {
-                        if rect_contains(areas.close, dc as u16, dr as u16)
-                            && rect_contains(areas.close, mouse.column, mouse.row)
-                        {
-                            self.mode = Mode::Terminal;
+                        if rect_contains(areas.close, dc as u16, dr as u16) {
+                            self.mobile_switcher_open = false;
                             return MobileMouseResult::Consumed;
                         }
                         // 否则在按下位置命中下拉目标 → 选择
@@ -1213,7 +1211,7 @@ impl AppState {
                             areas.viewport.height,
                         );
                         if !rect_contains(dropdown, dc as u16, dr as u16) {
-                            self.mode = Mode::Terminal;
+                            self.mobile_switcher_open = false;
                         }
                     }
                     return MobileMouseResult::Consumed;
@@ -1237,7 +1235,7 @@ impl AppState {
             }
             if rect_contains(self.view.mobile_menu_hit_area, mouse.column, mouse.row) {
                 self.mobile_switcher_scroll = 0;
-                self.mode = Mode::Navigate;
+                self.mobile_switcher_open = true;
                 return MobileMouseResult::Consumed;
             }
             return MobileMouseResult::Ignored;
@@ -1251,7 +1249,7 @@ impl AppState {
             let in_now = rect_contains(areas.close, mouse.column, mouse.row);
             if in_down && in_now {
                 self.mobile_close_press = None;
-                self.mode = Mode::Terminal;
+                self.mobile_switcher_open = false;
                 return MobileMouseResult::Consumed;
             }
         }
@@ -1272,7 +1270,7 @@ impl AppState {
                 Some(MobileMouseResult::Action(MouseAction::NewWorkspace))
             }
             Some(crate::ui::MobileSwitcherTarget::Workspace(ws_idx)) => {
-                self.mode = Mode::Terminal;
+                self.mobile_switcher_open = false;
                 Some(MobileMouseResult::Action(MouseAction::FocusWorkspace { ws_idx }))
             }
             Some(crate::ui::MobileSwitcherTarget::NewTab) => {
@@ -1280,16 +1278,16 @@ impl AppState {
                     open_new_tab_dialog(self);
                 } else {
                     self.request_new_tab = true;
-                    self.mode = Mode::Terminal;
+                    self.mobile_switcher_open = false;
                 }
                 Some(MobileMouseResult::Consumed)
             }
             Some(crate::ui::MobileSwitcherTarget::Tab(tab_idx)) => {
-                self.mode = Mode::Terminal;
+                self.mobile_switcher_open = false;
                 Some(MobileMouseResult::Action(MouseAction::FocusTab { tab_idx }))
             }
             Some(crate::ui::MobileSwitcherTarget::Agent { ws_idx, tab_idx: _, pane_id }) => {
-                self.mode = Mode::Terminal;
+                self.mobile_switcher_open = false;
                 Some(MobileMouseResult::Action(MouseAction::FocusPane { ws_idx, pane_id }))
             }
             Some(crate::ui::MobileSwitcherTarget::Menu(action_idx)) => {
@@ -1309,7 +1307,7 @@ impl AppState {
                     areas.viewport.height,
                 );
                 if !rect_contains(dropdown, col, row) {
-                    self.mode = Mode::Terminal;
+                    self.mobile_switcher_open = false;
                 }
                 Some(MobileMouseResult::Consumed)
             }
@@ -1323,7 +1321,7 @@ impl AppState {
                 MobileMouseResult::Action(MouseAction::NewWorkspace)
             }
             crate::ui::MobileSwitcherTarget::Workspace(ws_idx) => {
-                self.mode = Mode::Terminal;
+                self.mobile_switcher_open = false;
                 MobileMouseResult::Action(MouseAction::FocusWorkspace { ws_idx })
             }
             crate::ui::MobileSwitcherTarget::NewTab => {
@@ -1331,16 +1329,16 @@ impl AppState {
                     open_new_tab_dialog(self);
                 } else {
                     self.request_new_tab = true;
-                    self.mode = Mode::Terminal;
+                    self.mobile_switcher_open = false;
                 }
                 MobileMouseResult::Consumed
             }
             crate::ui::MobileSwitcherTarget::Tab(tab_idx) => {
-                self.mode = Mode::Terminal;
+                self.mobile_switcher_open = false;
                 MobileMouseResult::Action(MouseAction::FocusTab { tab_idx })
             }
             crate::ui::MobileSwitcherTarget::Agent { ws_idx, tab_idx: _, pane_id } => {
-                self.mode = Mode::Terminal;
+                self.mobile_switcher_open = false;
                 MobileMouseResult::Action(MouseAction::FocusPane { ws_idx, pane_id })
             }
             crate::ui::MobileSwitcherTarget::Menu(action_idx) => {

@@ -1181,7 +1181,7 @@ impl AppState {
             return;
         }
 
-        if self.view.layout == ViewLayout::Mobile && self.mode == Mode::Navigate {
+        if self.view.layout == ViewLayout::Mobile && self.mobile_switcher_open {
             self.ensure_mobile_workspace_visible(idx);
             return;
         }

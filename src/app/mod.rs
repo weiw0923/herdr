@@ -591,6 +591,7 @@ impl App {
             mobile_switcher_scroll: 0,
             mobile_drag_last_row: None,
             mobile_close_press: None,
+            mobile_switcher_open: false,
             view: state::ViewState {
                 layout: state::ViewLayout::Desktop,
                 sidebar_rect: Rect::default(),

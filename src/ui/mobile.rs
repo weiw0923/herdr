@@ -225,6 +225,11 @@ pub(crate) fn render_mobile_header(
     let p = &app.palette;
     fill_rect(frame, area, Style::default().bg(p.panel_bg));
 
+    // 菜单打开时隐藏 header 信息(~·圆点·all idle·1/1·tab·menus按钮), 只留 close
+    if app.mobile_switcher_open {
+        return;
+    }
+
     let switch = app.view.mobile_menu_hit_area;
     // switch 块左侧再辟一个 tab 块(窄, 只放计数+文字)
     let tab_w = TAB_BUTTON_WIDTH.min(area.width);

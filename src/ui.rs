@@ -339,7 +339,7 @@ fn compute_mobile_view(
         (area, Rect::default())
     };
 
-    if app.mode == Mode::Navigate {
+    if app.mobile_switcher_open {
         // 与鼠标端同一 viewport 口径(下拉高度), 否则每帧把 scroll 钳回 0 → 滚动失效
         let switcher_viewport_h = mobile_switcher_areas(app).viewport.height;
         let max_scroll = mobile_switcher_max_scroll_for_height(app, switcher_viewport_h);
@@ -433,7 +433,7 @@ pub fn render_with_runtime_registry(
         Mode::Onboarding => render_onboarding_overlay(app, frame, frame.area()),
         Mode::ReleaseNotes => render_release_notes_overlay(app, frame, frame.area()),
         Mode::ProductAnnouncement => render_product_announcement_overlay(app, frame, frame.area()),
-        Mode::Navigate if app.view.layout == ViewLayout::Mobile => {
+        _ if app.view.layout == ViewLayout::Mobile && app.mobile_switcher_open => {
             render_mobile_panel(app, terminal_runtimes, frame, frame.area())
         }
         Mode::Navigate => render_navigate_overlay(app, frame, mode_bar_area),

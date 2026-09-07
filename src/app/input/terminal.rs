@@ -377,6 +377,13 @@ impl App {
         &mut self,
         key: TerminalKey,
     ) -> Option<TerminalInputTarget> {
+        // mobile 下拉打开时: Esc 关闭菜单(不透传终端); 其余键照常
+        if self.state.mobile_switcher_open
+            && matches!(key.as_key_event().code, KeyCode::Esc)
+        {
+            self.state.mobile_switcher_open = false;
+            return None;
+        }
         match self.prepare_popup_key_forward(key.clone()) {
             PreparedPopupInput::NotOpen => {}
             PreparedPopupInput::Consumed => return None,

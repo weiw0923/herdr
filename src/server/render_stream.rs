@@ -332,7 +332,8 @@ pub(crate) fn render_virtual_with_runtime_registry(
     let buffer = terminal.backend().buffer().clone();
     let cursor = if popup_visible {
         popup_terminal_cursor(app_state, terminal_runtimes)
-    } else if suppress_focused_terminal_cursor {
+    } else if suppress_focused_terminal_cursor || app_state.mobile_switcher_open {
+        // mobile 下拉打开: 菜单浮层不应显示光标(焦点 pane 光标会透出到菜单上)
         None
     } else {
         focused_terminal_cursor(app_state, terminal_runtimes).or_else(|| {

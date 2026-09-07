@@ -1372,14 +1372,7 @@ impl AppState {
             delta.saturating_mul(2),
             max_scroll,
         );
-        // debug: 滚动关键值(定位滚不到底)
-        let areas = crate::ui::mobile_switcher_areas(self);
-        let content = max_scroll + areas.viewport.height as usize;
-        let _ = std::fs::OpenOptions::new().create(true).append(true)
-            .open("/tmp/herdr-scroll-debug.log")
-            .map(|mut f| { use std::io::Write; let _ = writeln!(f,
-                "delta={} scroll={} max={} content={} vp_y={} vp_h={}",
-                delta, self.mobile_switcher_scroll, max_scroll, content, areas.viewport.y, areas.viewport.height); });
+
     }
 
     pub(super) fn screen_rect(&self) -> Rect {

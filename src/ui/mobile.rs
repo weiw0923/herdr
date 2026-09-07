@@ -108,6 +108,32 @@ pub(crate) fn mobile_switcher_max_scroll_for_height(app: &AppState, viewport_hei
 
 /// Doc-row height of the agents section. An active query keeps its title and an
 /// empty-state row visible even when no agents match.
+/// mobile 下拉布局的唯一真相源: agents/spaces/tabs/menu 各段行数与条目数
+/// 渲染(doc_y 推进)与 content_height(滚动范围)都从这里导出, 永远同步
+struct MobileSwitcherLayout {
+    agents_h: usize,
+    spaces_h: usize,
+    tabs_h: usize,
+    menu_h: usize,
+}
+
+fn mobile_switcher_layout(app: &AppState) -> MobileSwitcherLayout {
+    let agents = agent_panel_entries(app);
+    let agents_h = if agents.is_empty() {
+        usize::from(app.agent_view_override.is_some()) * 2
+    } else {
+        1 + agents.len() * ENTRY_ROWS_PER_ITEM
+    };
+    let spaces_h = 2 + workspace_list_entries_expanded(app).len() * ENTRY_ROWS_PER_ITEM;
+    let tabs_h = app
+        .active
+        .and_then(|idx| app.workspaces.get(idx))
+        .map(|ws| 2 + ws.tabs.len())
+        .unwrap_or(0);
+    let menu_h = 1 + app.global_menu_labels().len();
+    MobileSwitcherLayout { agents_h, spaces_h, tabs_h, menu_h }
+}
+
 fn mobile_agents_block_height(app: &AppState) -> usize {
     let count = agent_panel_entries(app).len();
     if count == 0 {
@@ -520,17 +546,8 @@ fn render_close_button(app: &AppState, frame: &mut Frame, area: Rect) {
 }
 
 fn mobile_switcher_content_height(app: &AppState) -> usize {
-    // Derive spaces height from the same entry list the render/hit-test use so
-    // the three never disagree.
-    let spaces_h = 2 + workspace_list_entries_expanded(app).len() * ENTRY_ROWS_PER_ITEM;
-    let tabs_h = app
-        .active
-        .and_then(|idx| app.workspaces.get(idx))
-        .map(|ws| 2 + ws.tabs.len())
-        .unwrap_or(0);
-    let agents_h = mobile_agents_block_height(app);
-    let menu_h = 1 + app.global_menu_labels().len();
-    spaces_h + tabs_h + agents_h + menu_h
+    let l = mobile_switcher_layout(app);
+    l.agents_h + l.spaces_h + l.tabs_h + l.menu_h
 }
 
 fn render_mobile_switcher_content(
@@ -799,8 +816,22 @@ fn render_mobile_switcher_content(
                 Rect::new(content.x, y, content.width, 1),
             );
         }
+    for label in app.global_menu_labels() {
+        if let Some(y) = visible_y(viewport, app.mobile_switcher_scroll, doc_y) {
+            frame.render_widget(
+                Paragraph::new(format!("  {label}"))
+                    .style(Style::default().fg(p.overlay1).bg(p.panel_bg)),
+                Rect::new(content.x, y, content.width, 1),
+            );
+        }
         doc_y += 1;
     }
+    // debug: 渲染最终 doc_y vs content_height 对拍
+    let calc = mobile_switcher_content_height(app);
+    let _ = std::fs::OpenOptions::new().create(true).append(true)
+        .open("/tmp/herdr-layout-debug.log")
+        .map(|mut f| { use std::io::Write; let _ = writeln!(f,
+            "render doc_y={} content_height={} 差={}", doc_y, calc, doc_y as i64 - calc as i64); });
 }
 
 fn mobile_agent_detail(entry: &AgentPanelEntry) -> String {

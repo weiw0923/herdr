@@ -1176,13 +1176,23 @@ impl AppState {
             }
             _ => {}
         }
-        // 点中 switch(menu)区域 → 总是打开/刷新下拉; 并清除本次按下记录
+        // 点中 switch(menu)区域 → 打开/刷新下拉; 菜单已开时该位置是 close, 不再触发打开
+        let areas = crate::ui::mobile_switcher_areas(self);
         if matches!(mouse.kind, MouseEventKind::Down(MouseButton::Left))
+            && !self.mobile_switcher_open
             && rect_contains(self.view.mobile_menu_hit_area, mouse.column, mouse.row)
         {
             self.mobile_switcher_scroll = 0;
             self.mobile_close_press = None;
             self.mobile_switcher_open = true;
+            return MobileMouseResult::Consumed;
+        }
+        if matches!(mouse.kind, MouseEventKind::Down(MouseButton::Left))
+            && self.mobile_switcher_open
+            && rect_contains(areas.close, mouse.column, mouse.row)
+        {
+            // 菜单开时按下的 close 起点(由 Up 判定关闭)
+            self.mobile_close_press = Some((mouse.column as i16, mouse.row as i16));
             return MobileMouseResult::Consumed;
         }
         if self.mobile_switcher_open {
@@ -1267,6 +1277,7 @@ impl AppState {
     fn mobile_apply_target_at(&mut self, col: u16, row: u16) -> Option<MobileMouseResult> {
         match crate::ui::mobile_switcher_target_at(self, col, row) {
             Some(crate::ui::MobileSwitcherTarget::NewWorkspace) => {
+                self.mobile_switcher_open = false;
                 Some(MobileMouseResult::Action(MouseAction::NewWorkspace))
             }
             Some(crate::ui::MobileSwitcherTarget::Workspace(ws_idx)) => {
@@ -1278,8 +1289,8 @@ impl AppState {
                     open_new_tab_dialog(self);
                 } else {
                     self.request_new_tab = true;
-                    self.mobile_switcher_open = false;
                 }
+                self.mobile_switcher_open = false;
                 Some(MobileMouseResult::Consumed)
             }
             Some(crate::ui::MobileSwitcherTarget::Tab(tab_idx)) => {
@@ -1291,6 +1302,7 @@ impl AppState {
                 Some(MobileMouseResult::Action(MouseAction::FocusPane { ws_idx, pane_id }))
             }
             Some(crate::ui::MobileSwitcherTarget::Menu(action_idx)) => {
+                self.mobile_switcher_open = false;
                 let actions = global_menu_actions(self);
                 if let Some(action) = actions.get(action_idx).copied() {
                     apply_global_menu_action(self, action);
@@ -1318,6 +1330,7 @@ impl AppState {
     fn mobile_apply_target(&mut self, target: crate::ui::MobileSwitcherTarget) -> MobileMouseResult {
         match target {
             crate::ui::MobileSwitcherTarget::NewWorkspace => {
+                self.mobile_switcher_open = false;
                 MobileMouseResult::Action(MouseAction::NewWorkspace)
             }
             crate::ui::MobileSwitcherTarget::Workspace(ws_idx) => {
@@ -1329,8 +1342,8 @@ impl AppState {
                     open_new_tab_dialog(self);
                 } else {
                     self.request_new_tab = true;
-                    self.mobile_switcher_open = false;
                 }
+                self.mobile_switcher_open = false;
                 MobileMouseResult::Consumed
             }
             crate::ui::MobileSwitcherTarget::Tab(tab_idx) => {
@@ -1342,6 +1355,7 @@ impl AppState {
                 MobileMouseResult::Action(MouseAction::FocusPane { ws_idx, pane_id })
             }
             crate::ui::MobileSwitcherTarget::Menu(action_idx) => {
+                self.mobile_switcher_open = false;
                 let actions = global_menu_actions(self);
                 if let Some(action) = actions.get(action_idx).copied() {
                     apply_global_menu_action(self, action);
@@ -1358,6 +1372,14 @@ impl AppState {
             delta.saturating_mul(2),
             max_scroll,
         );
+        // debug: 滚动关键值(定位滚不到底)
+        let areas = crate::ui::mobile_switcher_areas(self);
+        let content = max_scroll + areas.viewport.height as usize;
+        let _ = std::fs::OpenOptions::new().create(true).append(true)
+            .open("/tmp/herdr-scroll-debug.log")
+            .map(|mut f| { use std::io::Write; let _ = writeln!(f,
+                "delta={} scroll={} max={} content={} vp_y={} vp_h={}",
+                delta, self.mobile_switcher_scroll, max_scroll, content, areas.viewport.y, areas.viewport.height); });
     }
 
     pub(super) fn screen_rect(&self) -> Rect {

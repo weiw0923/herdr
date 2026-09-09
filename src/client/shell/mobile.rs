@@ -459,9 +459,10 @@ pub(super) fn render_mobile_switcher(
     let content_rows: usize = items_probe.iter().map(|item| item.lines.len()).sum::<usize>();
     let overhead = 3u16; // switcher 自身 header(2) + 分隔线(1)
     let avail = area.height.saturating_sub(area.height.min(2));
+    // 全显示优先: 内容+头部开销 ≤ 可用 → 全显示(无留白无滚动); 放不下 → 可用高度+滚动
     let dropdown_total = (content_rows as u16)
         .saturating_add(overhead)
-        .min(((avail as f32) * 0.6).ceil() as u16)
+        .min(avail)
         .min(area.height)
         .max(3);
     // 缩限 area 到实际下拉高度
@@ -537,7 +538,7 @@ pub(super) fn render_mobile_switcher(
     );
     let total_rows = items.iter().map(|item| item.lines.len()).sum::<usize>();
     let dropdown_h = (total_rows as u16)
-        .min((full_viewport.height as f32 * 0.6) as u16)
+        .min(full_viewport.height)
         .max(1);
     let viewport = Rect::new(
         full_viewport.x,

@@ -41,6 +41,7 @@ impl ClientShellState {
             self.snapshot.as_deref(),
             &self.config,
             &mut render::ShellRenderState {
+                mode: self.mode,
                 endpoints: &self.endpoints,
                 active_endpoint_id: &self.active_endpoint_id,
                 collapsed_endpoints: &self.collapsed_endpoints,
@@ -139,6 +140,7 @@ impl ClientShellState {
             snapshot,
             &self.config,
             render::ShellRenderState {
+                mode: self.mode,
                 endpoints: &self.endpoints,
                 active_endpoint_id: &self.active_endpoint_id,
                 collapsed_endpoints: &self.collapsed_endpoints,

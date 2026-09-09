@@ -9,7 +9,7 @@ use ratatui::{
 use super::render::{display_width, put_segment, put_text};
 use super::*;
 
-const MOBILE_BUTTON_WIDTH: u16 = 10;
+const MOBILE_BUTTON_WIDTH: u16 = 9;
 
 struct MobileItem {
     lines: Vec<Line<'static>>,
@@ -109,38 +109,22 @@ fn render_header_tab_block(
         .position(|t| t.tab_id == workspace.active_tab_id)
         .unwrap_or(0);
     let counter = format!("{}/{}", active + 1, tabs.len());
-    // 竖线分隔 tab块|menus块(同 surface0 底色需竖线), 画在块最右列
-    let bar_x = area.right().saturating_sub(1);
-    for y in area.y..area.bottom() {
-        put_text(
-            buffer,
-            bar_x,
-            y,
-            1,
-            "│",
-            Style::default()
-                .fg(palette.surface_dim)
-                .bg(palette.surface0),
-        );
-    }
-    // 文本区=去掉竖线列, 居中
-    let text_w = area.width.saturating_sub(1);
+    // 无竖线(与左侧状态区靠颜色区分); 手动居中
+    let center_x = |text_w: u16| area.x + area.width.saturating_sub(text_w) / 2;
     if area.height > 1 {
-        let cx = area.x + (text_w.saturating_sub(display_width(&counter))) / 2;
         put_text(
             buffer,
-            cx,
+            center_x(display_width(&counter)),
             area.y,
-            text_w,
+            area.width,
             &counter,
             Style::default().fg(palette.text).bg(palette.surface0),
         );
-        let cx2 = area.x + (text_w.saturating_sub(3)) / 2;
         put_text(
             buffer,
-            cx2,
+            center_x(3),
             area.y + 1,
-            text_w,
+            area.width,
             "tab",
             Style::default()
                 .fg(palette.text)
@@ -148,12 +132,11 @@ fn render_header_tab_block(
                 .add_modifier(Modifier::BOLD),
         );
     } else {
-        let cx = area.x + (text_w.saturating_sub(display_width(&counter))) / 2;
         put_text(
             buffer,
-            cx,
+            center_x(display_width(&counter)),
             area.y,
-            text_w,
+            area.width,
             &counter,
             Style::default().fg(palette.text).bg(palette.surface0),
         );
@@ -242,22 +225,20 @@ fn render_header_button(
     let palette = &config.palette;
     buffer.set_style(area, Style::default().bg(palette.surface0));
     let label_y = if area.height > 1 { area.y + 1 } else { area.y };
-    let label = "menus";
-    let label_width = display_width(label);
+    // 手动居中: (w - text)/2 偏移
+    let center_x = |text_w: u16| area.x + area.width.saturating_sub(text_w) / 2;
     put_text(
         buffer,
-        area.x
-            .saturating_add(1)
-            .saturating_add(area.width.saturating_sub(1 + label_width) / 2),
+        center_x(5),
         label_y,
-        area.width.saturating_sub(1),
-        label,
+        area.width,
+        "menus",
         Style::default()
             .fg(palette.text)
             .bg(palette.surface0)
             .add_modifier(Modifier::BOLD),
     );
-    // badge 常态显示: 空心=正常入口, blocked 时实心红(需要立刻处理)
+    // badge 常态显示: 空心=正常入口, blocked 实心红; " ○ " 3字符居中(圆落中间格)
     let blocked = snapshot
         .agents
         .iter()
@@ -267,16 +248,27 @@ fn render_header_button(
     } else {
         ("○", palette.overlay0)
     };
-    // 圆对齐 menus 中间字母 n: label 区(x+1,宽w-1)内 menus 居中, n 在 x+1+(9-5)/2+2 = x+5
-    let bx = area.x.saturating_add(5);
     put_text(
         buffer,
-        bx,
+        center_x(3),
         area.y,
-        1,
-        symbol,
+        area.width,
+        &format!(" {symbol} "),
         Style::default().fg(color).bg(palette.surface0),
     );
+    // 竖线最后画(覆盖文字背景), 位于块左缘 = tab|menus 分隔
+    for y in area.y..area.bottom() {
+        put_text(
+            buffer,
+            area.x,
+            y,
+            1,
+            "│",
+            Style::default()
+                .fg(palette.surface_dim)
+                .bg(palette.surface0),
+        );
+    }
 }
 
 fn mobile_endpoint_state(status: ClientEndpointStatus) -> &'static str {

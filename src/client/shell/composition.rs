@@ -504,13 +504,10 @@ impl ClientShellState {
             && self.overlay.is_none()
         {
             let mut composed = frame.to_ratatui_buffer()?;
-            // 下拉非全屏: 高度 = min(内容+头部开销, 屏幕60%), 从 header 下方弹出
-            // (内容高度由 render_mobile_switcher 内部 items 决定, 这里给足空间让其内部裁剪)
-            let avail_h = rows.saturating_sub(2);
-            let dropdown_rows = ((avail_h as f32) * 0.6).ceil() as u16 + 3; // +3 = header(2)+rule(1)
+            // 下拉非全屏: 传最大可用高度, 内部按内容裁剪(min(内容, 60%屏))
             super::mobile::render_mobile_switcher(
                 &mut composed,
-                Rect::new(0, 0, cols, dropdown_rows.min(rows)),
+                Rect::new(0, 0, cols, rows),
                 snapshot,
                 &self.endpoints,
                 &self.active_endpoint_id,

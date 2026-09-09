@@ -109,20 +109,38 @@ fn render_header_tab_block(
         .position(|t| t.tab_id == workspace.active_tab_id)
         .unwrap_or(0);
     let counter = format!("{}/{}", active + 1, tabs.len());
-    if area.height > 1 {
+    // 竖线分隔 tab块|menus块(同 surface0 底色需竖线), 画在块最右列
+    let bar_x = area.right().saturating_sub(1);
+    for y in area.y..area.bottom() {
         put_text(
             buffer,
-            area.x,
+            bar_x,
+            y,
+            1,
+            "│",
+            Style::default()
+                .fg(palette.surface_dim)
+                .bg(palette.surface0),
+        );
+    }
+    // 文本区=去掉竖线列, 居中
+    let text_w = area.width.saturating_sub(1);
+    if area.height > 1 {
+        let cx = area.x + (text_w.saturating_sub(display_width(&counter))) / 2;
+        put_text(
+            buffer,
+            cx,
             area.y,
-            area.width,
+            text_w,
             &counter,
             Style::default().fg(palette.text).bg(palette.surface0),
         );
+        let cx2 = area.x + (text_w.saturating_sub(3)) / 2;
         put_text(
             buffer,
-            area.x,
+            cx2,
             area.y + 1,
-            area.width,
+            text_w,
             "tab",
             Style::default()
                 .fg(palette.text)
@@ -130,11 +148,12 @@ fn render_header_tab_block(
                 .add_modifier(Modifier::BOLD),
         );
     } else {
+        let cx = area.x + (text_w.saturating_sub(display_width(&counter))) / 2;
         put_text(
             buffer,
-            area.x,
+            cx,
             area.y,
-            area.width,
+            text_w,
             &counter,
             Style::default().fg(palette.text).bg(palette.surface0),
         );
@@ -434,6 +453,27 @@ pub(super) fn render_mobile_switcher(
         return;
     }
     let palette = &config.palette;
+    // 先建条目算内容高度 → 下拉实际高度 = min(内容+头部开销, 可用60%)
+    // (非全屏: 内容少则矮, 内容多则可滚; 背景只画实际高度, 无下方留白)
+    let probe_viewport_w = area.width.saturating_sub(1);
+    let items_probe = mobile_items(
+        snapshot,
+        endpoints,
+        active_endpoint_id,
+        config,
+        selected_workspace_id,
+        probe_viewport_w,
+    );
+    let content_rows: usize = items_probe.iter().map(|item| item.lines.len()).sum::<usize>();
+    let overhead = 3u16; // switcher 自身 header(2) + 分隔线(1)
+    let avail = area.height.saturating_sub(area.height.min(2));
+    let dropdown_total = (content_rows as u16)
+        .saturating_add(overhead)
+        .min(((avail as f32) * 0.6).ceil() as u16)
+        .min(area.height)
+        .max(3);
+    // 缩限 area 到实际下拉高度
+    let area = Rect::new(area.x, area.y, area.width, dropdown_total);
     Clear.render(area, buffer);
     buffer.set_style(area, Style::default().bg(palette.panel_bg));
     hits.mobile_switch = Rect::default();

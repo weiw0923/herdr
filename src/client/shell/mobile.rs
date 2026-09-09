@@ -102,6 +102,13 @@ fn render_header_status(
     let tab_status = compact_tab_status(snapshot, workspace);
     let tab_width = display_width(&tab_status).saturating_add(1).min(area.width);
     let name_width = area.width.saturating_sub(tab_width);
+    // 圆点跟随当前 active tab 的 agent 状态(而非整个 workspace 聚合)
+    let active_tab_status = snapshot
+        .tabs
+        .iter()
+        .find(|tab| tab.tab_id == workspace.active_tab_id)
+        .map(|tab| tab.agent_status)
+        .unwrap_or(workspace.agent_status);
     put_text(
         buffer,
         area.x,
@@ -109,10 +116,10 @@ fn render_header_status(
         name_width.min(3),
         &format!(
             " {} ",
-            status_icon(workspace.agent_status, config.status_indicators)
+            status_icon(active_tab_status, config.status_indicators)
         ),
         Style::default()
-            .fg(status_color(workspace.agent_status, palette))
+            .fg(status_color(active_tab_status, palette))
             .bg(palette.panel_bg),
     );
     put_text(
@@ -168,7 +175,7 @@ fn render_header_button(
         );
     }
     let label_y = if area.height > 1 { area.y + 1 } else { area.y };
-    let label = "switch";
+    let label = "menus";
     let label_width = display_width(label);
     put_text(
         buffer,
@@ -183,23 +190,24 @@ fn render_header_button(
             .bg(palette.surface0)
             .add_modifier(Modifier::BOLD),
     );
-    if snapshot
+    // badge 常态显示: 空心=正常入口, blocked 时实心红(需要立刻处理)
+    let blocked = snapshot
         .agents
         .iter()
-        .any(|agent| agent.agent_status == crate::api::schema::AgentStatus::Blocked)
-    {
-        put_text(
-            buffer,
-            area.right().saturating_sub(1),
-            area.y,
-            1,
-            status_icon(
-                crate::api::schema::AgentStatus::Blocked,
-                config.status_indicators,
-            ),
-            Style::default().fg(palette.red).bg(palette.surface0),
-        );
-    }
+        .any(|agent| agent.agent_status == crate::api::schema::AgentStatus::Blocked);
+    let (symbol, color) = if blocked {
+        ("●", palette.red)
+    } else {
+        ("○", palette.overlay0)
+    };
+    put_text(
+        buffer,
+        area.right().saturating_sub(1),
+        area.y,
+        1,
+        symbol,
+        Style::default().fg(color).bg(palette.surface0),
+    );
 }
 
 fn mobile_endpoint_state(status: ClientEndpointStatus) -> &'static str {
@@ -425,13 +433,14 @@ pub(super) fn render_mobile_switcher(
             .fg(palette.surface_dim)
             .bg(palette.panel_bg),
     );
-    let viewport = Rect::new(
+    // 下拉非全屏: viewport = min(内容高度, 可用高度的 60%), 条目少则全显示
+    let full_viewport = Rect::new(
         area.x,
         rule_y.saturating_add(1),
         area.width,
         area.height.saturating_sub(header_height + 1),
     );
-    if viewport.is_empty() {
+    if full_viewport.is_empty() {
         *scroll = 0;
         return;
     }
@@ -442,9 +451,18 @@ pub(super) fn render_mobile_switcher(
         active_endpoint_id,
         config,
         selected_workspace_id,
-        viewport.width.saturating_sub(1),
+        full_viewport.width.saturating_sub(1),
     );
     let total_rows = items.iter().map(|item| item.lines.len()).sum::<usize>();
+    let dropdown_h = (total_rows as u16)
+        .min((full_viewport.height as f32 * 0.6) as u16)
+        .max(1);
+    let viewport = Rect::new(
+        full_viewport.x,
+        full_viewport.y,
+        full_viewport.width,
+        dropdown_h,
+    );
     let max_scroll = total_rows.saturating_sub(usize::from(viewport.height));
     *scroll = (*scroll).min(max_scroll);
     if *reveal_workspace {

@@ -9,7 +9,7 @@ use ratatui::{
 use super::render::{display_width, put_segment, put_text};
 use super::*;
 
-const MOBILE_BUTTON_WIDTH: u16 = 10;
+const MOBILE_BUTTON_WIDTH: u16 = 9;
 
 struct MobileItem {
     lines: Vec<Line<'static>>,
@@ -67,10 +67,80 @@ pub(super) fn render_mobile_header(
         area.height,
     );
     hits.mobile_switch = button;
-    let status_width = button.x.saturating_sub(area.x).saturating_sub(1);
+    // tab 块: button 左侧(窄块, 第1行计数/第2行"tab", surface0 底色)
+    let tab_block_width = 5u16.min(area.width);
+    let tab_block = Rect::new(
+        button.x.saturating_sub(tab_block_width),
+        area.y,
+        tab_block_width.min(button.x.saturating_sub(area.x)),
+        area.height,
+    );
+    let status_width = tab_block.x.saturating_sub(area.x);
     let status = Rect::new(area.x, area.y, status_width, area.height);
     render_header_status(buffer, status, snapshot, config);
+    render_header_tab_block(buffer, tab_block, snapshot, config);
     render_header_button(buffer, button, snapshot, config);
+}
+
+/// tab 独立块: 第1行纯计数(如 1/2), 第2行 "tab"; surface0 底色, 无竖线(与状态区靠颜色区分)
+fn render_header_tab_block(
+    buffer: &mut Buffer,
+    area: Rect,
+    snapshot: &ClientShellSnapshot,
+    config: &ClientShellConfig,
+) {
+    if area.is_empty() {
+        return;
+    }
+    let palette = &config.palette;
+    buffer.set_style(area, Style::default().bg(palette.surface0));
+    let Some(workspace) = snapshot.focused_workspace_id.as_deref().and_then(|id| {
+        snapshot.workspaces.iter().find(|w| w.workspace_id == id)
+    }) else {
+        return;
+    };
+    let tabs: Vec<_> = snapshot
+        .tabs
+        .iter()
+        .filter(|t| t.workspace_id == workspace.workspace_id)
+        .collect();
+    let active = tabs
+        .iter()
+        .position(|t| t.tab_id == workspace.active_tab_id)
+        .unwrap_or(0);
+    let counter = format!("{}/{}", active + 1, tabs.len());
+    // 无竖线(与左侧状态区靠颜色区分); 手动居中
+    let center_x = |text_w: u16| area.x + area.width.saturating_sub(text_w) / 2;
+    if area.height > 1 {
+        put_text(
+            buffer,
+            center_x(display_width(&counter)),
+            area.y,
+            area.width,
+            &counter,
+            Style::default().fg(palette.text).bg(palette.surface0),
+        );
+        put_text(
+            buffer,
+            center_x(3),
+            area.y + 1,
+            area.width,
+            "tab",
+            Style::default()
+                .fg(palette.text)
+                .bg(palette.surface0)
+                .add_modifier(Modifier::BOLD),
+        );
+    } else {
+        put_text(
+            buffer,
+            center_x(display_width(&counter)),
+            area.y,
+            area.width,
+            &counter,
+            Style::default().fg(palette.text).bg(palette.surface0),
+        );
+    }
 }
 
 fn render_header_status(
@@ -99,45 +169,44 @@ fn render_header_status(
         );
         return;
     };
-    let tab_status = compact_tab_status(snapshot, workspace);
-    let tab_width = display_width(&tab_status).saturating_add(1).min(area.width);
-    let name_width = area.width.saturating_sub(tab_width);
+    // 第1行: workspace 名(粗); 圆点移到第二行(左) + agent 汇总; tab 信息由独立 tab 块显示
+    let name_width = area.width.min(40);
     put_text(
         buffer,
         area.x,
         area.y,
-        name_width.min(3),
-        &format!(
-            " {} ",
-            status_icon(workspace.agent_status, config.status_indicators)
-        ),
-        Style::default()
-            .fg(status_color(workspace.agent_status, palette))
-            .bg(palette.panel_bg),
-    );
-    put_text(
-        buffer,
-        area.x.saturating_add(3),
-        area.y,
-        name_width.saturating_sub(3),
-        &crate::ui::truncate_end(&workspace.label, usize::from(name_width.saturating_sub(4))),
+        name_width,
+        &format!(" {}", crate::ui::truncate_end(
+            &workspace.label,
+            usize::from(name_width.saturating_sub(2)),
+        )),
         Style::default()
             .fg(palette.text)
             .bg(palette.panel_bg)
             .add_modifier(Modifier::BOLD),
     );
-    put_text(
-        buffer,
-        area.right().saturating_sub(tab_width).saturating_add(1),
-        area.y,
-        tab_width.saturating_sub(1),
-        &tab_status,
-        Style::default().fg(palette.overlay1).bg(palette.panel_bg),
-    );
     if area.height > 1 {
+        // 第2行: 圆点(最左, 当前 active tab 状态) + agent 汇总
+        let row2 = Rect::new(area.x, area.y + 1, area.width, 1);
+        let active_tab_status = snapshot
+            .tabs
+            .iter()
+            .find(|tab| tab.tab_id == workspace.active_tab_id)
+            .map(|tab| tab.agent_status)
+            .unwrap_or(workspace.agent_status);
+        put_text(
+            buffer,
+            row2.x,
+            row2.y,
+            3.min(area.width),
+            &format!(" {} ", status_icon(active_tab_status, config.status_indicators)),
+            Style::default()
+                .fg(status_color(active_tab_status, palette))
+                .bg(palette.panel_bg),
+        );
         render_agent_summary(
             buffer,
-            Rect::new(area.x, area.y + 1, area.width, 1),
+            Rect::new(row2.x + 3, row2.y, area.width.saturating_sub(3), 1),
             snapshot,
             config,
         );
@@ -155,6 +224,39 @@ fn render_header_button(
     }
     let palette = &config.palette;
     buffer.set_style(area, Style::default().bg(palette.surface0));
+    let label_y = if area.height > 1 { area.y + 1 } else { area.y };
+    // 手动居中: (w - text)/2 偏移
+    let center_x = |text_w: u16| area.x + area.width.saturating_sub(text_w) / 2;
+    put_text(
+        buffer,
+        center_x(5),
+        label_y,
+        area.width,
+        "menus",
+        Style::default()
+            .fg(palette.text)
+            .bg(palette.surface0)
+            .add_modifier(Modifier::BOLD),
+    );
+    // badge 常态显示: 空心=正常入口, blocked 实心红; " ○ " 3字符居中(圆落中间格)
+    let blocked = snapshot
+        .agents
+        .iter()
+        .any(|agent| agent.agent_status == crate::api::schema::AgentStatus::Blocked);
+    let (symbol, color) = if blocked {
+        ("●", palette.red)
+    } else {
+        ("○", palette.overlay0)
+    };
+    put_text(
+        buffer,
+        center_x(3),
+        area.y,
+        area.width,
+        &format!(" {symbol} "),
+        Style::default().fg(color).bg(palette.surface0),
+    );
+    // 竖线最后画(覆盖文字背景), 位于块左缘 = tab|menus 分隔
     for y in area.y..area.bottom() {
         put_text(
             buffer,
@@ -165,39 +267,6 @@ fn render_header_button(
             Style::default()
                 .fg(palette.surface_dim)
                 .bg(palette.surface0),
-        );
-    }
-    let label_y = if area.height > 1 { area.y + 1 } else { area.y };
-    let label = "switch";
-    let label_width = display_width(label);
-    put_text(
-        buffer,
-        area.x
-            .saturating_add(1)
-            .saturating_add(area.width.saturating_sub(1 + label_width) / 2),
-        label_y,
-        area.width.saturating_sub(1),
-        label,
-        Style::default()
-            .fg(palette.text)
-            .bg(palette.surface0)
-            .add_modifier(Modifier::BOLD),
-    );
-    if snapshot
-        .agents
-        .iter()
-        .any(|agent| agent.agent_status == crate::api::schema::AgentStatus::Blocked)
-    {
-        put_text(
-            buffer,
-            area.right().saturating_sub(1),
-            area.y,
-            1,
-            status_icon(
-                crate::api::schema::AgentStatus::Blocked,
-                config.status_indicators,
-            ),
-            Style::default().fg(palette.red).bg(palette.surface0),
         );
     }
 }
@@ -376,6 +445,28 @@ pub(super) fn render_mobile_switcher(
         return;
     }
     let palette = &config.palette;
+    // 先建条目算内容高度 → 下拉实际高度 = min(内容+头部开销, 可用60%)
+    // (非全屏: 内容少则矮, 内容多则可滚; 背景只画实际高度, 无下方留白)
+    let probe_viewport_w = area.width.saturating_sub(1);
+    let items_probe = mobile_items(
+        snapshot,
+        endpoints,
+        active_endpoint_id,
+        config,
+        selected_workspace_id,
+        probe_viewport_w,
+    );
+    let content_rows: usize = items_probe.iter().map(|item| item.lines.len()).sum::<usize>();
+    let overhead = 3u16; // switcher 自身 header(2) + 分隔线(1)
+    let avail = area.height.saturating_sub(area.height.min(2));
+    // 全显示优先: 内容+头部开销 ≤ 可用 → 全显示(无留白无滚动); 放不下 → 可用高度+滚动
+    let dropdown_total = (content_rows as u16)
+        .saturating_add(overhead)
+        .min(avail)
+        .min(area.height)
+        .max(3);
+    // 缩限 area 到实际下拉高度
+    let area = Rect::new(area.x, area.y, area.width, dropdown_total);
     Clear.render(area, buffer);
     buffer.set_style(area, Style::default().bg(palette.panel_bg));
     hits.mobile_switch = Rect::default();
@@ -407,7 +498,7 @@ pub(super) fn render_mobile_switcher(
         area.x,
         area.y,
         close.x.saturating_sub(area.x),
-        " switch",
+        "",
         Style::default()
             .fg(palette.text)
             .bg(palette.panel_bg)
@@ -425,13 +516,14 @@ pub(super) fn render_mobile_switcher(
             .fg(palette.surface_dim)
             .bg(palette.panel_bg),
     );
-    let viewport = Rect::new(
+    // 下拉非全屏: viewport = min(内容高度, 可用高度的 60%), 条目少则全显示
+    let full_viewport = Rect::new(
         area.x,
         rule_y.saturating_add(1),
         area.width,
         area.height.saturating_sub(header_height + 1),
     );
-    if viewport.is_empty() {
+    if full_viewport.is_empty() {
         *scroll = 0;
         return;
     }
@@ -442,9 +534,18 @@ pub(super) fn render_mobile_switcher(
         active_endpoint_id,
         config,
         selected_workspace_id,
-        viewport.width.saturating_sub(1),
+        full_viewport.width.saturating_sub(1),
     );
     let total_rows = items.iter().map(|item| item.lines.len()).sum::<usize>();
+    let dropdown_h = (total_rows as u16)
+        .min(full_viewport.height)
+        .max(1);
+    let viewport = Rect::new(
+        full_viewport.x,
+        full_viewport.y,
+        full_viewport.width,
+        dropdown_h,
+    );
     let max_scroll = total_rows.saturating_sub(usize::from(viewport.height));
     *scroll = (*scroll).min(max_scroll);
     if *reveal_workspace {
@@ -529,18 +630,6 @@ fn render_close_button(buffer: &mut Buffer, area: Rect, palette: &Palette) {
         return;
     }
     buffer.set_style(area, Style::default().bg(palette.surface0));
-    for y in area.y..area.bottom() {
-        put_text(
-            buffer,
-            area.x,
-            y,
-            1,
-            "│",
-            Style::default()
-                .fg(palette.surface_dim)
-                .bg(palette.surface0),
-        );
-    }
     let label_width = 5;
     let label_x = area
         .x

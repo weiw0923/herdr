@@ -248,6 +248,7 @@ pub(super) struct ShellRenderState<'a> {
     pub(super) reveal_navigation_workspace: &'a mut bool,
     pub(super) dragged_workspace_id: Option<&'a str>,
     pub(super) workspace_drop_indicator_row: Option<u16>,
+    pub(super) mode: ClientShellMode,
 }
 
 pub(super) fn render_shell(
@@ -258,7 +259,9 @@ pub(super) fn render_shell(
     mut state: ShellRenderState<'_>,
 ) -> ShellHitMap {
     let mut hits = ShellHitMap::default();
-    if layout.mobile_header.height > 0 {
+    // 菜单打开(Navigate)时隐藏 header 信息(~·圆点·all idle·1/1·tab), switcher 自带 header 行(只留 close)
+    let menu_open = state.mode == ClientShellMode::Navigate;
+    if layout.mobile_header.height > 0 && !menu_open {
         super::mobile::render_mobile_header(
             buffer,
             layout.mobile_header,
